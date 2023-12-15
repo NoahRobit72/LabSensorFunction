@@ -1,17 +1,17 @@
 const { MongoClient } = require('mongodb');
 
 const connectToDatabase = async () => {
-    const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority';
-    const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-  
-    try {
-      await client.connect();
-      return client.db(); // Return the database from the connection
-    } catch (err) {
-      console.error(err);
-      throw err; // Throw the error to be caught by the calling function
-    }
-  };
+  const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority';
+  const client = new MongoClient(uri);
+
+  try {
+    await client.connect();
+    return client.db(); // Return the database from the connection
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+};
 
 const getCollection = (db, collectionName) => {
   return db.collection(collectionName);
