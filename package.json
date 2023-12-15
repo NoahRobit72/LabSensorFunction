@@ -18,5 +18,9 @@
   "homepage": "https://github.com/NoahRobit72/LabSensorFunction#readme",
   "devDependencies": {
     "node-fetch": "^3.3.2"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongodb": "^6.3.0"
   }
 }
