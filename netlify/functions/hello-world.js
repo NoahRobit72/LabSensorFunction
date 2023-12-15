@@ -1,39 +1,58 @@
 const { connectToDatabase, login } = require('../../databaseFunctions/db');
 
-exports.handler = async function () {
-    const nameOfLab = "nia lab";
-    const passwordOfLab = "pi4life";
+exports.handler = async function (event, context) {
+  // Enable CORS for all routes
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials': 'true',
+    'Content-Type': 'application/json',
+  };
 
-    try {
-        const db = await connectToDatabase();
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers,
+    };
+  }
 
-        const lab = await login(db, nameOfLab, passwordOfLab);
+  const nameOfLab = "nia lab";
+  const passwordOfLab = "pi4life";
 
-        if (lab.success) {
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    success: true,
-                    api: lab.api,
-                    message: 'Login successful'
-                })
-            };
-        } else {
-            return {
-                statusCode: 401,
-                body: JSON.stringify({
-                    message: 'Login unsuccessful'
-                })
-            };
-        }
-    } catch (err) {
-        console.error(err);
+  try {
+    const db = await connectToDatabase();
 
-        return {
-            statusCode: 500,
-            body: JSON.stringify({
-                error: 'Internal server error'
-            })
-        };
+    const lab = await login(db, nameOfLab, passwordOfLab);
+
+    if (lab.success) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          api: lab.api,
+          message: 'Login successful',
+        }),
+      };
+    } else {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({
+          message: 'Login unsuccessful',
+        }),
+      };
     }
+  } catch (err) {
+    console.error(err);
+
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: 'Internal server error',
+      }),
+    };
+  }
 };
