@@ -20,26 +20,37 @@ exports.handler = async function () {
     'Content-Type': 'application/json',
   };
 
+
   try {
     const data = await fetchDataFromMongoDB();
     const multilineString = generateMultilineString(data);
-
-
-    console.log(multilineString)
-
+  
+    console.log(multilineString);
+  
+    const response = {
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": multilineString
+          }
+        }
+      ]
+    };
+  
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        message: multilineString,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error) {
+    console.error('Error fetching data:', error);
     return {
-      statusCode: 502,
+      statusCode: 500,
       headers,
       body: JSON.stringify({
-        message: 'error did not get data',
+        error: 'Internal server error',
       }),
     };
   }
