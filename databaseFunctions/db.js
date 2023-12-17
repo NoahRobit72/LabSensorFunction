@@ -403,6 +403,30 @@ const removeAlarm = async (db, labApi, alarmID, callback) => {
   }
 };
 
+
+const fetchDataFromMongoDB = async () => {
+  const filter = {};
+  const projection = {
+    'DeviceName': 1,
+    'Frequency': 1,
+    'Units': 1,
+    '_id': 0
+  };
+
+  const client = await MongoClient.connect(
+    'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority'
+  );
+
+  try {
+    const coll = client.db('test').collection('nialab_configCollection');
+    const cursor = coll.find(filter, { projection });
+    const result = await cursor.toArray();
+    return result;
+  } finally {
+    await client.close();
+  }
+}
+
 module.exports = {
   connectToDatabase,
   initializeLabs,
@@ -417,5 +441,6 @@ module.exports = {
   editAlarm,
   removeAlarm,
   addDevice,
-  updateDeviceData
+  updateDeviceData,
+  fetchDataFromMongoDB
 };
