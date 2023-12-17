@@ -1,5 +1,13 @@
-
 const { fetchDataFromMongoDB} = require('../../databaseFunctions/db');
+
+// Example Response
+//{"message":[{"DeviceName":"Device 1","Frequency":10,"Units":"Minute"},{"DeviceName":"Device 2","Frequency":10,"Units":"Minute"}]}
+// DeviceName: Device 1
+// Frequency: 10 samples per minute
+
+
+
+
 
 
 exports.handler = async function () {
@@ -11,13 +19,19 @@ exports.handler = async function () {
     'Access-Control-Allow-Credentials': 'true',
     'Content-Type': 'application/json',
   };
+
   try {
     const data = await fetchDataFromMongoDB();
+    const multilineString = generateMultilineString(data);
+
+
+    console.log(multilineString)
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        message: data,
+        message: multilineString,
       }),
     };
   } catch (error) {
@@ -29,6 +43,18 @@ exports.handler = async function () {
       }),
     };
   }
+}
+
+
+function generateMultilineStringForSlack(data) {
+  let result = "";
+
+  data.forEach(device => {
+    result += `*Device Name:* ${device.DeviceName}\n`;
+    result += `*Frequency:* ${device.Frequency} samples per ${device.Units}\n\n`;
+  });
+
+  return result;
 }
 
 
