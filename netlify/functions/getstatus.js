@@ -46,7 +46,7 @@ exports.handler = async function () {
 }
 
 
-function generateMultilineStringForSlack(data) {
+function generateMultilineString(data) {
   let result = "";
 
   data.forEach(device => {
