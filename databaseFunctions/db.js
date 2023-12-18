@@ -1,5 +1,13 @@
 const { MongoClient } = require('mongodb');
 
+const headers = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Access-Control-Allow-Methods',
+  'Access-Control-Allow-Credentials': 'true',
+  'Content-Type': 'application/json',
+};
+
 const connectToDatabase = async () => {
   const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority';
   const client = new MongoClient(uri);
@@ -50,6 +58,8 @@ const initializeLabs = async (db, callback) => {
   }
 };
 
+
+// Implemented ✅
 const login = async (db, username, password) => {
     const labCollection = getCollection(db, 'labCollection');
   
@@ -403,7 +413,7 @@ const removeAlarm = async (db, labApi, alarmID, callback) => {
   }
 };
 
-
+// udpdate this so test and nialab_configuration  is not hard coded
 const fetchDataFromMongoDB = async () => {
   const filter = {};
   const projection = {
@@ -442,5 +452,6 @@ module.exports = {
   removeAlarm,
   addDevice,
   updateDeviceData,
-  fetchDataFromMongoDB
+  fetchDataFromMongoDB,
+  headers
 };

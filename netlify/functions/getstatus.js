@@ -1,14 +1,13 @@
 const { fetchDataFromMongoDB} = require('../../databaseFunctions/db');
 
-// Example Response
+// SLACK Function
+
+// Example Query
 //{"message":[{"DeviceName":"Device 1","Frequency":10,"Units":"Minute"},{"DeviceName":"Device 2","Frequency":10,"Units":"Minute"}]}
+
+// Slack OUTPUT:
 // DeviceName: Device 1
 // Frequency: 10 samples per minute
-
-
-
-
-
 
 exports.handler = async function () {
   // Enable CORS for all routes
