@@ -4,7 +4,7 @@ const axios = require('axios');
 
 exports.handler = async function (event) {
     const alarm = event.queryStringParameters.alarmName
-    const slackWebhookURL = 'https://hooks.slack.com/services/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';
+    const slackWebhookURL = 'https://hooks.slack.com/services/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';
 
     const returnString = `ALERT: ${alarm} has been triggered!`
 
