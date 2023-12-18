@@ -16,7 +16,6 @@ exports.handler = async function (event) {
         to: '+12313426931'
     })
     .then(message => console.log(message.sid))
-
     return {
         statusCode: 200,
         body: JSON.stringify({
