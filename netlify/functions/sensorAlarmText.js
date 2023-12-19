@@ -9,7 +9,7 @@ exports.handler = async function (event) {
 
     const returnString = `ALERT: ${alarm} has been triggered!`
 
-    client.messages
+    await client.messages
     .create({
         body: returnString,
         from: '+18557298429',
