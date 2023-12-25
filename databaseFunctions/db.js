@@ -1,4 +1,6 @@
 const { MongoClient } = require('mongodb');
+const bcrypt = require ('bcryptjs');
+
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -25,82 +27,122 @@ const getCollection = (db, collectionName) => {
   return db.collection(collectionName);
 };
 
-const initializeLabs = async (db, callback) => {
+const initializeLabs = async (db) => {
   const labCollection = getCollection(db, 'labCollection');
 
   try {
     const count = await labCollection.countDocuments();
 
     if (count === 0) {
+      const salt = bcrypt.genSaltSync(10);
+      let password1 = bcrypt.hashSync("pi4life", salt);
+      let password2 = bcrypt.hashSync("password2", salt);
+
       const labs = [
         {
           "labID": 1,
-          "password": "pi4life",
+          "password": password1,
           "name": "nia lab",
-          "api": "nialab"
+          "api": "nialab",
         },
         {
           "labID": 2,
-          "password": "password2",
+          "password": password2,
           "name": "little lab",
-          "api": "littlelab"
-        }
+          "api": "littlelab",
+        },
       ];
 
+      labs.forEach((lab) => {
+        console.log(`Lab ${lab.labID} hashed password: `, lab.password);
+      });
+
       const result = await labCollection.insertMany(labs);
-      callback(null, result);
+      return result;
     } else {
-      callback(null, 'Collection is not empty');
+      return "Result is not empty";
     }
   } catch (err) {
     console.error(err);
-    callback(err);
+    return err;
   }
+};
+
+// Implemented ✅
+const login = async (db, username, password) => {
+  let response;
+  const labCollection = getCollection(db, 'labCollection');
+
+  try {
+    const lab = await labCollection.findOne({ name: username });
+
+    if (!lab) {
+      console.log("User not found");
+      response = {
+        success: false,
+        api: null,
+        message: 'Login failed - User not found',
+      };
+      return response;
+    }
+
+    console.log("Password from frontend: ", password);
+    console.log("Hashed Password in database: ", lab.password);
+
+    const isPasswordMatch = await bcrypt.compare(password.trim(), lab.password.trim());
+
+    if (isPasswordMatch) {
+      console.log("Password comparison successful");
+      response = {
+        success: true,
+        api: lab.api,
+        message: "Login Successful",
+      };
+    } else {
+      console.log("Password comparison failed");
+      response = {
+        success: false,
+        api: null,
+        message: 'Login failed - Password mismatch',
+      };
+    }
+  } catch (err) {
+    console.error("Error during login:", err);
+    response = {
+      success: false,
+      api: null,
+      message: 'Login failed - Internal error',
+    };
+  }
+  return response;
 };
 
 
 // Implemented ✅
-const login = async (db, username, password) => {
-    const labCollection = getCollection(db, 'labCollection');
-  
-    try {
-      const lab = await labCollection.findOne({ name: username, password: password });
-  
-      if (lab) {
-        return { success: true, api: lab.api, message: 'Login successful' };
-      } else {
-        return { success: false, message: 'Login failed' };
-      }
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
-  };
-  
-
-//Input Body: 
-// {
-//   MAC: "mac",
-//   IP: "ip",
-//   Time: 1387294820
-// }
-const addDevice = async (db, labApi, inputObject, callback) => {
+const addDevice = async (db, labApi, inputObject) => {
+  let response;
   const configCollection = getCollection(db, `${labApi}_configCollection`);
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+
+  const MAC = inputObject.MAC;
+  const IP = inputObject.IP;
+
 
   try {
     // Check if a device with the same MAC address already exists
     const existingDevice = await configCollection.findOne({ MAC: inputObject.MAC });
 
     if (existingDevice) {
-      callback(null, { 
+      response = { 
         success: false, 
-        message: 'Device with the same MAC address already exists', 
-        DeviceID: existingDevice.DeviceID,
-        Frequency: existingDevice.Frequency,
-        Units: existingDevice.Units
-      });
-      return;
+        message: 'Device with the same MAC address already exists',
+        data: {
+          DeviceID: existingDevice.DeviceID,
+          Frequency: existingDevice.Frequency,
+          Units: existingDevice.Units
+        }
+      };
+      return response;
     }
 
     // Asynchronously get the count for the new DeviceID
@@ -122,8 +164,8 @@ const addDevice = async (db, labApi, inputObject, callback) => {
       "DeviceName": `Device ${index}`,
       "Frequency": 10,
       "Units": "Minute",
-      "MAC": inputObject.MAC,
-      "IP": inputObject.IP
+      "MAC": MAC,
+      "IP": IP
     };
 
     // Use insertOne to get detailed result information
@@ -132,43 +174,84 @@ const addDevice = async (db, labApi, inputObject, callback) => {
 
     // Check if both insertions are acknowledged
     if (dataResult.acknowledged && configResult.acknowledged) {
-      callback(null, { 
+      response = { 
         success: true, 
         message: `Device added with DeviceID ${index}`, 
-        DeviceID: index,
-        Frequency: 10,
-        Units: "Minute"
-      });
+        data: {
+          DeviceID: index,
+          Frequency: 10,
+          Units: "Minute"
+        }
+      };
     } else {
-      // Provide more information in case of an issue
-      callback("Insertion not acknowledged", null);
+      response = { 
+        success: false, 
+        message: `Failed to add device with MAC: ${inputObject.MAC} and IP ${inputObject.IP}`, 
+        data: null
+      };
     }
   } catch (err) {
-    console.log(err);
-    callback(err, null);
+    response = { 
+      success: false, 
+      message: `Failed to add device with MAC: ${inputObject.MAC} and IP ${inputObject.IP} eith error: ${err}`, 
+      data: null
+    };
   }
+  return response;
 };
-
-
-
-const updateDeviceData = async (db, labApi, dataObject, callback) => {
+// Implemented ✅
+// Need to add logic that clears out older data from historicalCollection
+const updateDeviceData = async (db, labApi, dataObject) => {
+  let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+  const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
 
   try {
-    // const currentTime = Math.floor(new Date().getTime() / 1000); // Current time in epoch format
+    const currentTime = Math.floor(new Date().getTime() / 1000); // Current time in epoch format
 
-    // Update in dataCollection
+    // Check if historical collection exists for the current device
+    // Check if historical collection exists for the current device
+    const historicalDataExists = await historicalCollection.countDocuments({ DeviceID: dataObject.DeviceID }) > 0;
+
+    if (!historicalDataExists) {
+      // If historical data doesn't exist for the current device, insert data into historical collection
+      await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
+    } else {
+      // Retrieve the most recent data from historical collection
+      const mostRecentData = await historicalCollection
+        .find({ DeviceID: dataObject.DeviceID })
+        .sort({ Time: -1 })
+        .limit(1)
+        .toArray();
+
+      const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
+
+      // Insert data into historical collection if it's been 15 minutes since the last data
+      if ((currentTime - lastDataTime) >= 120) {
+        console.log("Instering")
+        
+        await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
+      }
+      else {
+        console.log("Not Inserting");
+        console.log(currentTime - lastDataTime)
+      }
+    }
+
+
+    // Update or insert data into data collection
     const dataResult = await dataCollection.updateOne(
       { DeviceID: dataObject.DeviceID },
-      { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: dataObject.Time } }
+      { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: currentTime } },
+      { upsert: true } // Create a new document if it doesn't exist
     );
 
     // Check if the update is acknowledged
-    if (dataResult.matchedCount > 0) {
-      // Check and update alarms
-      const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
+    if (dataResult.matchedCount > 0 || dataResult.upsertedCount > 0) {
 
+      // Checking alarm status
+      const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
       for (const alarm of alarms) {
         if (isAlarmTriggered(dataObject, alarm)) {
           // Alarm is triggered
@@ -184,18 +267,30 @@ const updateDeviceData = async (db, labApi, dataObject, callback) => {
           );
         }
       }
-
-      callback(null, 'Device data and alarms updated successfully');
+      response = {
+        success: true,
+        message: "Device data and alarms updated successfully",
+        data: null
+      };
     } else {
       // Provide more information in case of an issue
-      callback('Update not acknowledged', null);
+      response = {
+        success: false,
+        message: "Update not acknowledged",
+        data: null
+      };
     }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to update device data with error: ${err}`,
+      data: null
+    };
   }
+  return response;
 };
 
+// All three below are helper functions for updateDeviceData
 // Function to check if an alarm is triggered based on device data
 const isAlarmTriggered = (dataObject, alarm) => {
   switch (alarm.SensorType) {
@@ -231,49 +326,101 @@ const checkHumidityAlarm = (currentHumidity, threshold, compare) => {
   }
 };
 
-const getAllConfig = async (db, labApi, callback) => {
+// Implemented ✅
+const getAllConfigData = async (db, labApi) => {
+  let response;
   const configCollection = getCollection(db, `${labApi}_configCollection`);
 
   try {
     const config = await configCollection.find({}).toArray();
-
-    // Return an empty array if no data is found
-    callback(null, config || []);
+    response = {
+      success: true,
+      message: "Fetched all config data",
+      data: config || []
+    }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to fetch config data with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 };
 
-const getAllHomePageData = async (db, labApi, callback) => {
+// Implemented ✅
+const getAllHomePageData = async (db, labApi) => {
+  let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
   try {
     const data = await dataCollection.find({}).toArray();
-
     // Return an empty array if no data is found
-    callback(null, data || []);
+    response = {
+      success: true,
+      message: "Fetched all home page data",
+      data: data || []
+    }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to fetch homepage data with error: ${err}`,
+      data: null
+    }
+  }
+  return response;
+};
+
+const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
+  const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
+  const parsedDeviceID = parseInt(deviceID, 10);
+
+  try {
+    const historicalData = await historicalCollection
+      .find({ DeviceID: parseInt(parsedDeviceID) })
+      .sort({ Time: 1 }) // Sort by Time in ascending order
+      .project({ Temperature: 1, Humidity: 1, Time: 1, _id: 0 })
+      .toArray();
+
+    return {
+      success: true,
+      message: `Fetched all historical data for DeviceID ${deviceID}`,
+      data: historicalData || [],
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `Failed to fetch historical data for DeviceID ${deviceID} with error: ${err}`,
+      data: null,
+    };
   }
 };
 
-const getAllAlarms = async (db, labApi, callback) => {
+// Implemented ✅
+const getAllAlarmData = async (db, labApi) => {
+  let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
 
   try {
     const alarmData = await alarmCollection.find({}).toArray();
-    callback(null, alarmData);
+    response = {
+      success: true,
+      message: "Fetched all alarms from alarmCollection",
+      data: alarmData || []
+    }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to fetch homepage data with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 };
 
-// NEED TO UPDATE NAME IN DATA COLLECTION AS WELL
-
-const editDeviceConfig = async (db, labApi, deviceConfig, callback) => {
+// Implemented ✅
+const editDeviceConfig = async (db, labApi, deviceConfig) => {
+  let response;
   const configCollection = getCollection(db, `${labApi}_configCollection`);
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
@@ -283,33 +430,39 @@ const editDeviceConfig = async (db, labApi, deviceConfig, callback) => {
     // Update in configCollection
     const configResult = await configCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: updatedFields });
 
-    console.log("configResult:", configResult);
-
     // Update in dataCollection
     const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
-
-    console.log("dataResult:", dataResult);
 
     // Update in alarmCollection
     const alarmResult = await alarmCollection.updateMany({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
 
-    console.log("alarmResult:", alarmResult);
-
     // Check if all updates are acknowledged
     if (configResult.matchedCount > 0 && dataResult.matchedCount > 0) {
-      callback(null, 'Device config, name, and alarms updated successfully');
+      response = {
+        success: true,
+        message: "Successfully updated device config",
+        data: null
+      }
     } else {
-      // Provide more information in case of an issue
-      callback("Update not acknowledged", null);
+      response = {
+        success: false,
+        message: "Failed to update device config",
+        data: null
+      }
     }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to update device config with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 };
 
-
-const removeDevice = async (db, labApi, deviceID, callback) => {
+// Implemented ✅
+const removeDevice = async (db, labApi, deviceID) => {
+  let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
   const configCollection = getCollection(db, `${labApi}_configCollection`);
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
@@ -318,8 +471,12 @@ const removeDevice = async (db, labApi, deviceID, callback) => {
     const device = await dataCollection.findOne({ DeviceID: parseInt(deviceID) });
 
     if (!device) {
-      callback(null, `Device with DeviceID ${deviceID} not found`);
-      return;
+      response = {
+        success: false,
+        message: `Device with DeviceID ${deviceID} not found`,
+        data: null
+      }
+      return response;
     }
 
     const { _id } = device;
@@ -331,21 +488,34 @@ const removeDevice = async (db, labApi, deviceID, callback) => {
     const configRemoveResult = await configCollection.deleteOne({ DeviceID: parseInt(deviceID) });
 
     // Remove associated alarms from alarmCollection
-    const alarmsRemoveResult = await alarmCollection.deleteMany({ DeviceID: parseInt(deviceID) });
+    await alarmCollection.deleteMany({ DeviceID: parseInt(deviceID) });
 
     if (dataRemoveResult.deletedCount > 0 && configRemoveResult.deletedCount > 0) {
-      callback(null, `Device with DeviceID ${deviceID} removed from dataCollection, configCollection, and ${alarmsRemoveResult.deletedCount} alarms removed from alarmCollection`);
+      response = {
+        success: true,
+        message: `Removed device with DeviceID ${deviceID}`,
+        data: null
+      }
     } else {
-      callback('Deletion not acknowledged', null);
+      response = {
+        success: false,
+        message: `Deletion not acknowledged`,
+        data: null
+      }
     }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to delete device with DeviceID ${deviceID}`,
+      data: null
+    }
   }
+  return response;
 };
 
-
-const addAlarm = async (db, labApi, alarmObject, callback) => {
+// Implemented ✅
+const addAlarm = async (db, labApi, alarmObject) => {
+  let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
@@ -356,7 +526,12 @@ const addAlarm = async (db, labApi, alarmObject, callback) => {
     const device = await dataCollection.findOne({ DeviceName });
 
     if (!device) {
-      return callback(null, `Device with DeviceName ${DeviceName} not found`);
+      response = {
+        success: false,
+        message: `Device with DeviceName ${DeviceName} not found`,
+        data: null
+      }
+      return response;
     }
 
     const { DeviceID } = device;
@@ -368,16 +543,25 @@ const addAlarm = async (db, labApi, alarmObject, callback) => {
     const lastAlarm = await alarmCollection.find({}).sort({ AlarmID: -1 }).limit(1).toArray();
     alarmToAdd.AlarmID = lastAlarm.length > 0 ? lastAlarm[0].AlarmID + 1 : 1;
 
-    const result = await alarmCollection.insertOne(alarmToAdd);
-    callback(null, 'Alarm added to alarmCollection');
+    await alarmCollection.insertOne(alarmToAdd);
+    response = {
+      success: true,
+      message: 'Alarm added to alarmCollection',
+      data: null
+    }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to add alarm with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 };
 
-
-const editAlarm = async (db, labApi, updatedAlarm, callback) => {
+// Kinda implemented, but don't think we need this function anyways
+const editAlarm = async (db, labApi, updatedAlarm) => {
+  let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
   const { AlarmID, _id, ...updatedFields } = updatedAlarm; // Exclude _id from update
 
@@ -385,17 +569,31 @@ const editAlarm = async (db, labApi, updatedAlarm, callback) => {
     const result = await alarmCollection.updateOne({ AlarmID }, { $set: updatedFields });
 
     if (result.modifiedCount === 0) {
-      callback(null, `Alarm with AlarmID ${AlarmID} not found`);
+      response = {
+        success: false,
+        message: `Alarm with AlarmID ${AlarmID} not found`,
+        data: null
+      }
     } else {
-      callback(null, `Alarm with AlarmID ${AlarmID} updated successfully`);
+      response = {
+        success: true,
+        message: `Alarm with AlarmID ${AlarmID} updated successfully`,
+        data: null
+      }
     }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Alarm not updated with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 }
 
-const removeAlarm = async (db, labApi, alarmID, callback) => {
+// Implemented ✅
+const removeAlarm = async (db, labApi, alarmID) => {
+  let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
   const parsedAlarmID = parseInt(alarmID, 10);
 
@@ -403,14 +601,26 @@ const removeAlarm = async (db, labApi, alarmID, callback) => {
     const result = await alarmCollection.deleteOne({ "AlarmID": parsedAlarmID });
 
     if (result.deletedCount === 0) {
-      callback(null, `Alarm with AlarmID ${parsedAlarmID} not found`);
+      response = {
+        success: false,
+        message: `Alarm with AlarmID ${parsedAlarmID} not found`,
+        data: null
+      }
     } else {
-      callback(null, `Alarm with AlarmID ${parsedAlarmID} removed successfully`);
+      response = {
+        success: true,
+        message: `Alarm with AlarmID ${parsedAlarmID} removed successfully`,
+        data: null
+      }
     }
   } catch (err) {
-    console.error(err);
-    callback(err);
+    response = {
+      success: false,
+      message: `Failed to delete alarm with error: ${err}`,
+      data: null
+    }
   }
+  return response;
 };
 
 // udpdate this so test and nialab_configuration  is not hard coded
@@ -442,9 +652,9 @@ module.exports = {
   initializeLabs,
   login,
   getCollection,
-  getAllConfig,
+  getAllConfigData,
   editDeviceConfig,
-  getAllAlarms,
+  getAllAlarmData,
   removeDevice,
   getAllHomePageData,
   addAlarm,
@@ -453,5 +663,6 @@ module.exports = {
   addDevice,
   updateDeviceData,
   fetchDataFromMongoDB,
-  headers
+  headers,
+  getAllHistoricalDataForDevice
 };

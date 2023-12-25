@@ -1,7 +1,6 @@
-const { headers, connectToDatabase, login } = require('../../databaseFunctions/db');
-const bcrypt = require('bcryptjs');
+const { headers, connectToDatabase, getAllHistoricalDataForDevice } = require('../../databaseFunctions/db');
 
-exports.handler = async function (event, context) {
+exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({
     statusCode,
     headers: headers,
@@ -14,13 +13,10 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    const body = JSON.parse(event.body);
-
-    const nameOfLab = body.labName;
-    const passwordOfLab = body.labPassword;
-
+    const labApi = event.queryStringParameters.labApi;
+    const deviceID = event.queryStringParameters.deviceID
     const db = await connectToDatabase();
-    const response = await login(db, nameOfLab, passwordOfLab);
+    const response = await getAllHistoricalDataForDevice(db, labApi, deviceID);
 
     if (response.success) {
       return handleCors(200, response);
@@ -34,4 +30,4 @@ exports.handler = async function (event, context) {
       error: 'Internal server error',
     });
   }
-};
+}
