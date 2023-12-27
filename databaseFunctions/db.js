@@ -11,7 +11,7 @@ const headers = {
 };
 
 const connectToDatabase = async () => {
-  const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority';
+  const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
   const client = new MongoClient(uri);
 
   try {
