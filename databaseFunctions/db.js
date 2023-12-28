@@ -1,6 +1,9 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
 
+const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
+const authToken = '50bebb3a6d20ba5b449c644d1de5df54';
+const twilio = require('twilio')(accountSid, authToken);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -63,7 +66,7 @@ const createLab = async (db, inputObject) => {
       labID: index,
       labName: inputObject.labName,
       password: password,
-      api: inputObject.labName,
+      api: inputObject.labName.replace(/ /g,''),
       email: inputObject.email,
       phoneNumber: inputObject.phoneNumber
     }
@@ -78,6 +81,15 @@ const createLab = async (db, inputObject) => {
           api: lab.api
         }
       }
+
+      const returnString = `Hello ${lab.labName}! Welcome to LabSensors. For next steps, click here ...!`
+      //Uncomment when get numbers verified
+      // await twilio.messages
+      // .create({
+      //     body: returnString,
+      //     from: '+18557298429',
+      //     to: `${lab.phoneNumber}`
+      // })
     }
 
   } catch (err) {

@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, addDevice, initializeLabs } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, addDevice } = require('../../databaseFunctions/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({
@@ -17,16 +17,15 @@ exports.handler = async function (event) {
     const body = JSON.parse(event.body);
     const db = await connectToDatabase();
     const response = await addDevice(db, labApi, body);
-    const initLabs = await initializeLabs(db);
 
     if (response.success) {
       return handleCors(200, response);
     } else {
       return handleCors(401, response);
     }
-  } catch {
+  } catch (err) {
     return handleCors(500, {
-      error: 'Internal server error',
+      error: `Error: ${err}`
     });
   }
 }
