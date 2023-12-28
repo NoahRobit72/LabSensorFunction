@@ -27,46 +27,68 @@ const getCollection = (db, collectionName) => {
   return db.collection(collectionName);
 };
 
-const initializeLabs = async (db) => {
+// Implemented ✅
+// Need to encrypt labApi, but keep it shorter and in a format to pass as query parameter (no bcrypt)
+const createLab = async (db, inputObject) => {
+  let response;
+  if (inputObject.adminPassword != "pi4life&noah!Benji123") {
+    console.log("Incorrect key");
+    response = {
+      success: false,
+      message: "Incorrect admin key",
+      data: null
+    }
+    return response;
+  }
   const labCollection = getCollection(db, 'labCollection');
 
   try {
-    const count = await labCollection.countDocuments();
+    const existingLab = await labCollection.findOne({ labName: inputObject.labName });
 
-    if (count === 0) {
-      const salt = bcrypt.genSaltSync(10);
-      let password1 = bcrypt.hashSync("pi4life", salt);
-      let password2 = bcrypt.hashSync("password2", salt);
-
-      const labs = [
-        {
-          "labID": 1,
-          "password": password1,
-          "name": "nia lab",
-          "api": "nialab",
-        },
-        {
-          "labID": 2,
-          "password": password2,
-          "name": "little lab",
-          "api": "littlelab",
-        },
-      ];
-
-      labs.forEach((lab) => {
-        console.log(`Lab ${lab.labID} hashed password: `, lab.password);
-      });
-
-      const result = await labCollection.insertMany(labs);
-      return result;
-    } else {
-      return "Result is not empty";
+    if (existingLab) {
+      response = {
+        success: false,
+        message: `Lab with name ${inputObject.labName} already exists`,
+        data: null
+      }
+      return response;
     }
+
+    const index = await labCollection.countDocuments() + 1;
+    const salt = bcrypt.genSaltSync(10);
+    const password = bcrypt.hashSync(inputObject.password, salt);
+    // const labApi = bcrypt.hashSync(inputObject.labName, salt);
+
+    const lab = {
+      labID: index,
+      labName: inputObject.labName,
+      password: password,
+      api: inputObject.labName,
+      email: inputObject.email,
+      phoneNumber: inputObject.phoneNumber
+    }
+
+    const inputResult = await labCollection.insertOne(lab);
+
+    if (inputResult.acknowledged) {
+      response = {
+        success: true,
+        message: `Successfully created lab with ID ${index}`,
+        data: {
+          api: lab.api
+        }
+      }
+    }
+
   } catch (err) {
-    console.error(err);
-    return err;
+    response = {
+      success: false,
+      message: `Failed to initialize lab with error: ${err}`,
+      data: null
+    }
   }
-};
+  return response;
+}
 
 // Implemented ✅
 const login = async (db, username, password) => {
@@ -74,7 +96,7 @@ const login = async (db, username, password) => {
   const labCollection = getCollection(db, 'labCollection');
 
   try {
-    const lab = await labCollection.findOne({ name: username });
+    const lab = await labCollection.findOne({ labName: username });
 
     if (!lab) {
       console.log("User not found");
@@ -85,9 +107,6 @@ const login = async (db, username, password) => {
       };
       return response;
     }
-
-    console.log("Password from frontend: ", password);
-    console.log("Hashed Password in database: ", lab.password);
 
     const isPasswordMatch = await bcrypt.compare(password.trim(), lab.password.trim());
 
@@ -136,11 +155,7 @@ const addDevice = async (db, labApi, inputObject) => {
       response = { 
         success: false, 
         message: 'Device with the same MAC address already exists',
-        data: {
-          DeviceID: existingDevice.DeviceID,
-          Frequency: existingDevice.Frequency,
-          Units: existingDevice.Units
-        }
+        data: null
       };
       return response;
     }
@@ -649,7 +664,6 @@ const fetchDataFromMongoDB = async () => {
 
 module.exports = {
   connectToDatabase,
-  initializeLabs,
   login,
   getCollection,
   getAllConfigData,
@@ -664,5 +678,6 @@ module.exports = {
   updateDeviceData,
   fetchDataFromMongoDB,
   headers,
-  getAllHistoricalDataForDevice
+  getAllHistoricalDataForDevice,
+  createLab
 };
