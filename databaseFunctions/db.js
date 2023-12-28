@@ -148,7 +148,6 @@ const login = async (db, username, password) => {
   return response;
 };
 
-
 // Implemented ✅
 const addDevice = async (db, labApi, inputObject) => {
   let response;
@@ -165,9 +164,13 @@ const addDevice = async (db, labApi, inputObject) => {
 
     if (existingDevice) {
       response = { 
-        success: false, 
+        success: true, 
         message: 'Device with the same MAC address already exists',
-        data: null
+        data: {
+          DeviceID: existingDevice.DeviceID,
+          Frequency: existingDevice.Frequency,
+          Units: existingDevice.Units
+        }
       };
       return response;
     }
