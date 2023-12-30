@@ -3,7 +3,7 @@ const bcrypt = require ('bcryptjs');
 
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '50bebb3a6d20ba5b449c644d1de5df54';
-const twilio = require('twilio')(accountSid, authToken);
+// const twilio = require('twilio')(accountSid, authToken);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -13,13 +13,22 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
+let cachedClient = null;
+let cachedDb = null;
+
 const connectToDatabase = async () => {
+  if (cachedDb && cachedClient && cachedClient.isConnected()) {
+    return cachedDb;
+  }
+
   const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
   try {
     await client.connect();
-    return client.db(); // Return the database from the connection
+    cachedClient = client;
+    cachedDb = client.db(); // Return the database from the connection
+    return cachedDb;
   } catch (err) {
     console.error(err);
     throw err;
@@ -653,27 +662,22 @@ const removeAlarm = async (db, labApi, alarmID) => {
   return response;
 };
 
-// udpdate this so test and nialab_configuration  is not hard coded
-const fetchDataFromMongoDB = async () => {
-  const filter = {};
-  const projection = {
-    'DeviceName': 1,
-    'Frequency': 1,
-    'Units': 1,
-    '_id': 0
-  };
-
-  const client = await MongoClient.connect(
-    'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/?retryWrites=true&w=majority'
-  );
+// Finish this up
+const refreshDeviceStatus = async(db, labApi) => {
+  let response;
+  const configCollection = getCollection(db, `${labApi}_configCollection`);
 
   try {
-    const coll = client.db('test').collection('nialab_configCollection');
-    const cursor = coll.find(filter, { projection });
-    const result = await cursor.toArray();
-    return result;
-  } finally {
-    await client.close();
+    const configData = await configCollection.find({}, {projection: {_id: 0, DeviceID: 0, DeviceName: 0, Frequency: 0, Units: 0, MAC: 1, IP: 1}}).toArray();
+    
+    configData.array.forEach(element => {
+      // Send signal to each
+    });
+
+    // Listen to response
+
+  } catch (err) {
+
   }
 }
 
@@ -690,9 +694,7 @@ module.exports = {
   editAlarm,
   removeAlarm,
   addDevice,
-  updateDeviceData,
-  fetchDataFromMongoDB,
-  headers,
+  updateDeviceData,  headers,
   getAllHistoricalDataForDevice,
   createLab
 };
