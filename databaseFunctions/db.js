@@ -239,8 +239,117 @@ const addDevice = async (db, labApi, inputObject) => {
   }
   return response;
 };
+
 // Implemented ✅
-// Need to add logic that clears out older data from historicalCollection
+const updateRecentDeviceData = async (db, labApi, dataObject) => {
+  let response;
+  const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+
+  try {
+    const dataResult = await dataCollection.updateOne(
+      { DeviceID: dataObject.DeviceID },
+      { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: dataObject.Time } },
+      { upsert: true }
+    );
+
+    if (dataResult.matchedCount > 0 || dataResult.upsertedCount > 0) {
+      response = { 
+        success: true, 
+        message: "Device data updated successfully", 
+        data: null 
+      };
+    } else {
+      response = { 
+        success: false, 
+        message: "Failed to update device data", 
+        data: null 
+      };
+    }
+  } catch (err) {
+    response = { 
+      success: false, 
+      message: `Failed to update device data with error: ${err}`, 
+      data: null 
+    };
+  }
+  return response;
+}
+
+// Implemented ✅
+const updateHistoricalDeviceData = async (db, labApi, dataObject) => {
+ let response;
+ const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
+ const historicalDataExists = await historicalCollection.countDocuments({ DeviceID: dataObject.DeviceID }) > 0;
+
+ try {
+  if (!historicalDataExists) {
+    console.log("Inserting into historical collection");
+    await historicalCollection.insertOne({ ...dataObject });
+
+    response = {success: true, message: "Historical data successfully updated", data: null}
+    return response;
+  } else {
+    console.log("Retrieving most recent data");
+    const mostRecentData = await historicalCollection
+      .find({ DeviceID: dataObject.DeviceID })
+      .sort({ Time: -1 })
+      .limit(1)
+      .toArray();
+
+    const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
+
+    if ((dataObject.Time - lastDataTime) >= 120) {
+      await historicalCollection.insertOne({ ...dataObject, Time: dataObject.Time });
+      response = {success: true, message: "Historical data successfully updated", data: null}
+    } else {
+      response = {success: true, message: "Historical data not updated due to insufficient time passing", data: null}
+    }
+  }
+ } catch (err) {
+  response = {
+    success: false, 
+    message: `Failed to update historical data with error: ${err}`
+  }
+ }
+ return response;
+
+}
+
+const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
+  let response;
+  const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
+
+  try {
+    const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
+      for (const alarm of alarms) {
+        if (isAlarmTriggered(dataObject, alarm)) {
+          await alarmCollection.updateOne(
+            { AlarmID: alarm.AlarmID },
+            { $set: { Status: "Triggered" } }
+          );
+        } else {
+          await alarmCollection.updateOne(
+            { AlarmID: alarm.AlarmID },
+            { $set: { Status: "Not Triggered" } }
+          );
+        }
+      }
+      response = {
+        success: true,
+        message: "Alarms successfully updated",
+        data: null
+      }
+  } catch (err) {
+    response = {
+      success: false,
+      message: `Alarms failed to update with error: ${err}`,
+      data: null
+    }
+  }
+  return response;
+}
+// Implemented ✅
+// OUTDATED
 const updateDeviceData = async (db, labApi, dataObject) => {
   try {
     console.log("Start updateDeviceData");
@@ -249,7 +358,7 @@ const updateDeviceData = async (db, labApi, dataObject) => {
     const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
     const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
 
-    const currentTime = Math.floor(new Date().getTime() / 1000);
+    // const currentTime = Math.floor(new Date().getTime() / 1000);
 
     console.log("Checking historical data");
     const historicalDataExists = await historicalCollection.countDocuments({ DeviceID: dataObject.DeviceID }) > 0;
@@ -679,7 +788,11 @@ module.exports = {
   editAlarm,
   removeAlarm,
   addDevice,
-  updateDeviceData,  headers,
+  updateDeviceData,
+  updateRecentDeviceData,
+  updateHistoricalDeviceData,
+  checkDeviceAlarmStatus,
+  headers,
   getAllHistoricalDataForDevice,
   createLab
 };
