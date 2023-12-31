@@ -184,7 +184,6 @@ const login = async (db, username, password) => {
 // Implemented ✅
 const addDevice = async (db, labApi, inputObject) => {
   let response;
-  const configCollection = getCollection(db, `${labApi}_configCollection`);
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
   const MAC = inputObject.MAC;
@@ -193,7 +192,7 @@ const addDevice = async (db, labApi, inputObject) => {
 
   try {
     // Check if a device with the same MAC address already exists
-    const existingDevice = await configCollection.findOne({ MAC: inputObject.MAC });
+    const existingDevice = await dataCollection.findOne({ MAC: inputObject.MAC });
 
     if (existingDevice) {
       response = { 
@@ -221,12 +220,7 @@ const addDevice = async (db, labApi, inputObject) => {
       Temperature: 0,
       Humidity: 0,
       Time: currentTime,
-      Status: "Online"
-    };
-
-    const configObject = {
-      DeviceID: index,
-      DeviceName: `Device ${index}`,
+      Status: "Online",
       Frequency: 10,
       Units: "Minute",
       MAC: MAC,
@@ -235,10 +229,9 @@ const addDevice = async (db, labApi, inputObject) => {
 
     // Use insertOne to get detailed result information
     const dataResult = await dataCollection.insertOne(dataObject);
-    const configResult = await configCollection.insertOne(configObject);
 
     // Check if both insertions are acknowledged
-    if (dataResult.acknowledged && configResult.acknowledged) {
+    if (dataResult.acknowledged) {
       response = { 
         success: true, 
         message: `Device added with DeviceID ${index}`, 
@@ -373,6 +366,43 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
   }
   return response;
 }
+
+// All three below are helper functions for updateDeviceData
+// Function to check if an alarm is triggered based on device data
+const isAlarmTriggered = (dataObject, alarm) => {
+  switch (alarm.SensorType) {
+    case "Temperature":
+      return checkTemperatureAlarm(dataObject.Temperature, alarm.Threshold, alarm.Compare);
+    case "Humidity":
+      return checkHumidityAlarm(dataObject.Humidity, alarm.Threshold, alarm.Compare)
+    default:
+      return false;
+  }
+};
+
+// Function to check temperature alarm
+const checkTemperatureAlarm = (currentTemperature, threshold, compare) => {
+  switch (compare) {
+    case ">":
+      return currentTemperature > threshold;
+    case "<":
+      return currentTemperature < threshold;
+    default:
+      return false;
+  }
+};
+
+const checkHumidityAlarm = (currentHumidity, threshold, compare) => {
+  switch (compare) {
+    case ">":
+      return currentHumidity > threshold;
+    case "<":
+      return currentHumidity < threshold;
+    default:
+      return false;
+  }
+};
+
 // Implemented ✅
 // OUTDATED
 const updateDeviceData = async (db, labApi, dataObject) => {
@@ -447,43 +477,8 @@ const updateDeviceData = async (db, labApi, dataObject) => {
   }
 };
 
-// All three below are helper functions for updateDeviceData
-// Function to check if an alarm is triggered based on device data
-const isAlarmTriggered = (dataObject, alarm) => {
-  switch (alarm.SensorType) {
-    case "Temperature":
-      return checkTemperatureAlarm(dataObject.Temperature, alarm.Threshold, alarm.Compare);
-    case "Humidity":
-      return checkHumidityAlarm(dataObject.Humidity, alarm.Threshold, alarm.Compare)
-    default:
-      return false;
-  }
-};
-
-// Function to check temperature alarm
-const checkTemperatureAlarm = (currentTemperature, threshold, compare) => {
-  switch (compare) {
-    case ">":
-      return currentTemperature > threshold;
-    case "<":
-      return currentTemperature < threshold;
-    default:
-      return false;
-  }
-};
-
-const checkHumidityAlarm = (currentHumidity, threshold, compare) => {
-  switch (compare) {
-    case ">":
-      return currentHumidity > threshold;
-    case "<":
-      return currentHumidity < threshold;
-    default:
-      return false;
-  }
-};
-
 // Implemented ✅
+// No need once tables are combined, use getAllHomePageData instead
 const getAllConfigData = async (db, labApi) => {
   let response;
   const configCollection = getCollection(db, `${labApi}_configCollection`);
@@ -578,23 +573,17 @@ const getAllAlarmData = async (db, labApi) => {
 // Implemented ✅
 const editDeviceConfig = async (db, labApi, deviceConfig) => {
   let response;
-  const configCollection = getCollection(db, `${labApi}_configCollection`);
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
-  const { _id, ...updatedFields } = deviceConfig;
 
   try {
-    // Update in configCollection
-    const configResult = await configCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: updatedFields });
-
-    // Update in dataCollection
-    const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
+    const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName, Frequency: deviceConfig.Frequency, Units: deviceConfig.Units } });
 
     // Update in alarmCollection
     await alarmCollection.updateMany({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
 
     // Check if all updates are acknowledged
-    if (configResult.matchedCount > 0 && dataResult.matchedCount > 0) {
+    if (dataResult.matchedCount > 0) {
       sendMQTTConfigMessage(labApi, deviceConfig.DeviceID, deviceConfig.Frequency, deviceConfig.Humidity);
       response = {
         success: true,
