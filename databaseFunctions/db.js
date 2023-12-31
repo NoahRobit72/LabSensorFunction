@@ -16,15 +16,16 @@ const headers = {
 let cachedClient = null;
 let cachedDb = null;
 
+
 const connectToDatabase = async () => {
-  if (cachedDb && cachedClient && cachedClient.isConnected()) {
-    return cachedDb;
-  }
-
-  const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
-  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
   try {
+    if (cachedDb && cachedClient) {
+      console.log("CACHE")
+      return cachedDb;
+    }
+    const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
+    const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
     await client.connect();
     cachedClient = client;
     cachedDb = client.db(); // Return the database from the connection
@@ -241,23 +242,23 @@ const addDevice = async (db, labApi, inputObject) => {
 // Implemented ✅
 // Need to add logic that clears out older data from historicalCollection
 const updateDeviceData = async (db, labApi, dataObject) => {
-  let response;
-  const dataCollection = getCollection(db, `${labApi}_dataCollection`);
-  const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
-  const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
-
   try {
-    const currentTime = Math.floor(new Date().getTime() / 1000); // Current time in epoch format
+    console.log("Start updateDeviceData");
 
-    // Check if historical collection exists for the current device
-    // Check if historical collection exists for the current device
+    const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+    const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
+    const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
+
+    const currentTime = Math.floor(new Date().getTime() / 1000);
+
+    console.log("Checking historical data");
     const historicalDataExists = await historicalCollection.countDocuments({ DeviceID: dataObject.DeviceID }) > 0;
 
     if (!historicalDataExists) {
-      // If historical data doesn't exist for the current device, insert data into historical collection
+      console.log("Inserting into historical collection");
       await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
     } else {
-      // Retrieve the most recent data from historical collection
+      console.log("Retrieving most recent data");
       const mostRecentData = await historicalCollection
         .find({ DeviceID: dataObject.DeviceID })
         .sort({ Time: -1 })
@@ -266,68 +267,52 @@ const updateDeviceData = async (db, labApi, dataObject) => {
 
       const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
 
-      // Insert data into historical collection if it's been 15 minutes since the last data
       if ((currentTime - lastDataTime) >= 120) {
-        console.log("Instering")
-        
+        console.log("Inserting into historical collection");
         await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
-      }
-      else {
+      } else {
         console.log("Not Inserting");
-        console.log(currentTime - lastDataTime)
+        console.log(currentTime - lastDataTime);
       }
     }
 
-
-    // Update or insert data into data collection
+    console.log("Updating or inserting data into data collection");
     const dataResult = await dataCollection.updateOne(
       { DeviceID: dataObject.DeviceID },
       { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: currentTime } },
-      { upsert: true } // Create a new document if it doesn't exist
+      { upsert: true }
     );
 
-    // Check if the update is acknowledged
     if (dataResult.matchedCount > 0 || dataResult.upsertedCount > 0) {
+      console.log("Checking alarm status");
 
-      // Checking alarm status
       const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
       for (const alarm of alarms) {
         if (isAlarmTriggered(dataObject, alarm)) {
-          // Alarm is triggered
           await alarmCollection.updateOne(
             { AlarmID: alarm.AlarmID },
             { $set: { Status: "Triggered" } }
           );
         } else {
-          // Alarm is not triggered
           await alarmCollection.updateOne(
             { AlarmID: alarm.AlarmID },
             { $set: { Status: "Not Triggered" } }
           );
         }
       }
-      response = {
-        success: true,
-        message: "Device data and alarms updated successfully",
-        data: null
-      };
+
+      console.log("Device data and alarms updated successfully");
+      return { success: true, message: "Device data and alarms updated successfully", data: null };
     } else {
-      // Provide more information in case of an issue
-      response = {
-        success: false,
-        message: "Update not acknowledged",
-        data: null
-      };
+      console.log("Update not acknowledged");
+      return { success: false, message: "Update not acknowledged", data: null };
     }
   } catch (err) {
-    response = {
-      success: false,
-      message: `Failed to update device data with error: ${err}`,
-      data: null
-    };
+    console.error(`Failed to update device data with error: ${err}`);
+    return { success: false, message: `Failed to update device data with error: ${err}`, data: null };
   }
-  return response;
 };
+
 
 // All three below are helper functions for updateDeviceData
 // Function to check if an alarm is triggered based on device data

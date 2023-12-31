@@ -23,7 +23,7 @@ exports.handler = async function (event) {
     } else {
       return handleCors(401, response);
     }
-  } catch {
+  } catch (err) {
     console.error("Error:", err);
 
     return handleCors(500, {
