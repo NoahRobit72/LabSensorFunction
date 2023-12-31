@@ -5,6 +5,29 @@ const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '50bebb3a6d20ba5b449c644d1de5df54';
 // const twilio = require('twilio')(accountSid, authToken);
 
+//MQTT DEFS
+const mqtt = require('mqtt');
+const readline = require('readline');
+
+const fs = require('fs')
+const protocol = 'mqtts'
+// Set the host and port based on the connection information.
+const host = 'u88196e4.ala.us-east-1.emqxsl.com'
+const port = '8883'
+const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
+const connectUrl = `${protocol}://${host}:${port}`
+
+const client = mqtt.connect(connectUrl, {
+  clientId,
+  clean: true,
+  connectTimeout: 4000,
+  username: 'mqttservice',
+  password: 'password3',
+  reconnectPeriod: 1000,
+  // If the server is using a self-signed certificate, you need to pass the CA.
+  ca: fs.readFileSync('./broker.emqx.io-ca.crt'),
+})
+
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
@@ -179,7 +202,8 @@ const addDevice = async (db, labApi, inputObject) => {
         data: {
           DeviceID: existingDevice.DeviceID,
           Frequency: existingDevice.Frequency,
-          Units: existingDevice.Units
+          Units: existingDevice.Units,
+          Status: existingDevice.Status
         }
       };
       return response;
@@ -192,20 +216,21 @@ const addDevice = async (db, labApi, inputObject) => {
     
 
     const dataObject = {
-      "DeviceID": index,
-      "DeviceName": `Device ${index}`,
-      "Temperature": 0,
-      "Humidity": 0,
-      "Time": currentTime
+      DeviceID: index,
+      DeviceName: `Device ${index}`,
+      Temperature: 0,
+      Humidity: 0,
+      Time: currentTime,
+      Status: "Online"
     };
 
     const configObject = {
-      "DeviceID": index,
-      "DeviceName": `Device ${index}`,
-      "Frequency": 10,
-      "Units": "Minute",
-      "MAC": MAC,
-      "IP": IP
+      DeviceID: index,
+      DeviceName: `Device ${index}`,
+      Frequency: 10,
+      Units: "Minute",
+      MAC: MAC,
+      IP: IP
     };
 
     // Use insertOne to get detailed result information
@@ -422,7 +447,6 @@ const updateDeviceData = async (db, labApi, dataObject) => {
   }
 };
 
-
 // All three below are helper functions for updateDeviceData
 // Function to check if an alarm is triggered based on device data
 const isAlarmTriggered = (dataObject, alarm) => {
@@ -567,10 +591,11 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
     const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
 
     // Update in alarmCollection
-    const alarmResult = await alarmCollection.updateMany({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
+    await alarmCollection.updateMany({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
 
     // Check if all updates are acknowledged
     if (configResult.matchedCount > 0 && dataResult.matchedCount > 0) {
+      sendMQTTConfigMessage(labApi, deviceConfig.DeviceID, deviceConfig.Frequency, deviceConfig.Humidity);
       response = {
         success: true,
         message: "Successfully updated device config",
@@ -592,6 +617,24 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
   }
   return response;
 };
+
+// Function to update device config via the broker
+function sendMQTTConfigMessage(lab, deviceID, Frequency, Units){
+  message = deviceID.toString() + " " + Frequency.toString() + " " + Units;
+
+
+  topic = lab + "/CONFIG"
+  // Publish the user's message to a topic
+  client.publish(topic, message, (err) => {
+  if (!err) {
+      console.log(`Published message to ${topic}: ${message}`);
+  } else {
+      console.error(`Error publishing message: ${err}`);
+  }
+
+  console.log();
+  });
+}
 
 // Implemented ✅
 const removeDevice = async (db, labApi, deviceID) => {
@@ -756,23 +799,77 @@ const removeAlarm = async (db, labApi, alarmID) => {
   return response;
 };
 
-// Finish this up
-const refreshDeviceStatus = async(db, labApi) => {
+// Implemented ✅
+const sendDeviceRefresh = async(labApi) => {
   let response;
-  const configCollection = getCollection(db, `${labApi}_configCollection`);
-
-  try {
-    const configData = await configCollection.find({}, {projection: {_id: 0, DeviceID: 0, DeviceName: 0, Frequency: 0, Units: 0, MAC: 1, IP: 1}}).toArray();
-    
-    configData.array.forEach(element => {
-      // Send signal to each
-    });
-
-    // Listen to response
-
+  try {    
+    sendMQTTStatusMessage(labApi)
+    response = {
+      success: true,
+      message: "Successfully sent message to MQTT broker to check device status",
+      data: null
+    }
   } catch (err) {
-
+    response = {
+      success: false,
+      message: `Failed to send message to MQTT broker with error: ${err}`,
+      data: null
+    }
   }
+  return response;
+}
+
+const updateManyDeviceStatus = async(db, labApi, devices) => {
+  let response;
+  const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+
+  try {  
+    const updateOffline = await dataCollection.updateMany(
+      { DeviceID: { $nin: devices } }, // Devices NOT in the provided list
+      { $set: { Status: "Offline" } }
+    );
+    const updateOnline = await dataCollection.updateMany(
+      { DeviceID: { $in: devices } }, // Devices in the provided list
+      { $set: { Status: "Online" } }
+    );
+  
+    if (updateOnline.acknowledged && updateOffline.acknowledged) {
+      response = {
+        success: true,
+        message: "Updated device status for multiple devices",
+        data: null
+      }
+    }
+    else {
+      response = {
+        success: false,
+        message: "Failed to updatedevice status for multiple devices",
+        data: null
+      }
+    }
+  } catch (err) {
+    response = {
+      success: false,
+      message: `Failed to updatedevice status for multiple devices with error: ${err}`,
+      data: null
+    }
+  }
+  return response;
+}
+
+function sendMQTTStatusMessage(lab){
+  topic = lab + "/STATUS/OUT";
+  const statusOutMessage = "STATUS";
+  // Publish the user's message to a topic
+  client.publish(topic, statusOutMessage, (err) => {
+  if (!err) {
+      console.log(`Published message to ${topic}: ${statusOutMessage}`);
+  } else {
+      console.error(`Error publishing message: ${err}`);
+  }
+
+  console.log();
+  });
 }
 
 module.exports = {
@@ -794,5 +891,7 @@ module.exports = {
   checkDeviceAlarmStatus,
   headers,
   getAllHistoricalDataForDevice,
-  createLab
+  createLab,
+  sendDeviceRefresh,
+  updateManyDeviceStatus
 };
