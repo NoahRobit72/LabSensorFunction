@@ -507,11 +507,21 @@ const getAllHomePageData = async (db, labApi) => {
 
   try {
     const data = await dataCollection.find({}).toArray();
+
+    // Sort the data by status: "Online" first, "Offline" after
+    const sortedData = data.sort((a, b) => {
+      // Assuming "Status" is a property in your data objects
+      const statusOrder = { Online: 0, Offline: 1 };
+
+      // Compare the status of two data objects
+      return statusOrder[a.Status] - statusOrder[b.Status];
+    });
+
     // Return an empty array if no data is found
     response = {
       success: true,
       message: "Fetched all home page data",
-      data: data || []
+      data: sortedData || []
     }
   } catch (err) {
     response = {
@@ -522,6 +532,7 @@ const getAllHomePageData = async (db, labApi) => {
   }
   return response;
 };
+
 
 const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
   const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
@@ -792,7 +803,7 @@ const removeAlarm = async (db, labApi, alarmID) => {
 const sendDeviceRefresh = async(labApi) => {
   let response;
   try {    
-    sendMQTTStatusMessage(labApi)
+    sendMQTTStatusMessage(labApi);
     response = {
       success: true,
       message: "Successfully sent message to MQTT broker to check device status",
