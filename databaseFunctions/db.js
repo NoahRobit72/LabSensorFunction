@@ -25,7 +25,7 @@ const client = mqtt.connect(connectUrl, {
   password: 'password3',
   reconnectPeriod: 1000,
   // If the server is using a self-signed certificate, you need to pass the CA.
-  ca: fs.readFileSync('./databaseFunctions/broker.emqx.io-ca.crt'),
+  ca: fs.readFileSync('./broker.emqx.io-ca.crt'),
 })
 
 const headers = {
