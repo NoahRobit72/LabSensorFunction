@@ -3,7 +3,7 @@
 [build]
   command = "echo nbuild"
   functions = "netlify/functions"
-  publish = "public"
+  publish = " "
   include = ["public/certificates/**"]
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
