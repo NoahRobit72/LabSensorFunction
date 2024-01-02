@@ -47,7 +47,14 @@ const connectToDatabase = async () => {
       return cachedDb;
     }
     const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
-    const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+    const client = new MongoClient(uri, { 
+      useNewUrlParser: true, 
+      useUnifiedTopology: true, 
+      maxPoolSize: 10,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      maxIdleTimeMS: 30000
+    });
 
     await client.connect();
     cachedClient = client;
