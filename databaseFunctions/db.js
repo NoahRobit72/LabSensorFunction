@@ -17,7 +17,7 @@ const host = 'u88196e4.ala.us-east-1.emqxsl.com'
 const port = '8883'
 const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const connectUrl = `${protocol}://${host}:${port}`
-const caFilePath = path.resolve(process.cwd(), 'netlify/certificates/broker.emqx.io-ca.crt');
+const caFilePath = path.resolve(__dirname, '../broker.emqx.io-ca.crt');
 
 const client = mqtt.connect(connectUrl, {
   clientId,
