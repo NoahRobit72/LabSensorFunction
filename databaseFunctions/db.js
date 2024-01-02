@@ -1,5 +1,6 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
+const path = require ('path')
 
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
@@ -16,6 +17,7 @@ const host = 'u88196e4.ala.us-east-1.emqxsl.com'
 const port = '8883'
 const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const connectUrl = `${protocol}://${host}:${port}`
+const caFilePath = path.resolve(__dirname, 'broker.emqx.io-ca.crt');
 
 const client = mqtt.connect(connectUrl, {
   clientId,
@@ -25,7 +27,7 @@ const client = mqtt.connect(connectUrl, {
   password: 'password3',
   reconnectPeriod: 1000,
   // If the server is using a self-signed certificate, you need to pass the CA.
-  // ca: fs.readFileSync('./broker.emqx.io-ca.crt'),
+  ca: fs.readFileSync(caFilePath),
 })
 
 const headers = {
@@ -619,7 +621,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
 
     // Check if all updates are acknowledged
     if (dataResult.matchedCount > 0) {
-      let topic = `${labApi}/STATUS/OUT`;
+      let topic = `${labApi}/CONFIG`;
       let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units;
       sendMQTTMessage(topic, message);
       response = {
