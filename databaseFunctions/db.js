@@ -2,8 +2,8 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
 
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
-const authToken = '50bebb3a6d20ba5b449c644d1de5df54';
-// const twilio = require('twilio')(accountSid, authToken);
+const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
+const twilio = require('twilio')(accountSid, authToken);
 
 //MQTT DEFS
 const mqtt = require('mqtt');
@@ -124,12 +124,12 @@ const createLab = async (db, inputObject) => {
 
       const returnString = `Hello ${lab.labName}! Welcome to LabSensors. For next steps, click here ...!`
       //Uncomment when get numbers verified
-      // await twilio.messages
-      // .create({
-      //     body: returnString,
-      //     from: '+18557298429',
-      //     to: `${lab.phoneNumber}`
-      // })
+      await twilio.messages
+      .create({
+          body: returnString,
+          from: '+18557298429',
+          to: `${lab.phoneNumber}`
+      })
     }
 
   } catch (err) {
@@ -343,15 +343,32 @@ const updateHistoricalDeviceData = async (db, labApi, dataObject) => {
 const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
   let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
+  const labCollection = getCollection(db, "labCollection");
 
   try {
     const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
       for (const alarm of alarms) {
+        let previousStatus = alarm.Status;
         if (isAlarmTriggered(dataObject, alarm)) {
           await alarmCollection.updateOne(
             { AlarmID: alarm.AlarmID },
             { $set: { Status: "Triggered" } }
           );
+          
+          // SEND TEXT
+          if (previousStatus == 'Not Triggered') {
+            const lab = await labCollection.findOne({api: labApi});
+            const compare = alarm.Compare == '>' ? 'above' : 'below';
+            const returnString = `ALERT ${lab.labName}! Device ${alarm.DeviceName}'s ${alarm.SensorType} has gone ${compare} the threshold of ${alarm.Threshold}`
+
+            await twilio.messages
+            .create({
+                body: returnString,
+                from: '+18557298429',
+                to: `${lab.phoneNumber}`
+            })
+          }
+          
         } else {
           await alarmCollection.updateOne(
             { AlarmID: alarm.AlarmID },
@@ -823,8 +840,8 @@ const removeAlarm = async (db, labApi, alarmID) => {
 const sendDeviceRefresh = async(labApi) => {
   let response;
   try {    
-    let topic = `${labApi}/INIT/OUT`;
-    let message = "SETUP 192.168.1.9 0C:DC:7E:CB:6C:99";
+    let topic = `${labApi}/STATUS/OUT`;
+    let message = "STATUS";
     sendMQTTMessage(topic, message);
     response = {
       success: true,
