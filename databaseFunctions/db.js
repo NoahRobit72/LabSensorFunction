@@ -619,7 +619,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
 
     // Check if all updates are acknowledged
     if (dataResult.matchedCount > 0) {
-      let topic = `${labApi}/CONFIG`;
+      let topic = `${labApi}/STATUS/OUT`;
       let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units;
       sendMQTTMessage(topic, message);
       response = {
