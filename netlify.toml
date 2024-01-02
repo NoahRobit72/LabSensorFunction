@@ -3,6 +3,7 @@
   command = "# no build command"
   functions = "netlify/functions"
   publish = "public"
+  include = ["./databaseFunctions/broker.emqx.io-ca.crt"]
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
   ## Not needed for static site generators.
