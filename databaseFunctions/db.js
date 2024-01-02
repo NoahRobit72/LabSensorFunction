@@ -823,7 +823,7 @@ const removeAlarm = async (db, labApi, alarmID) => {
 const sendDeviceRefresh = async(labApi) => {
   let response;
   try {    
-    let topic = `${labApi}/STATUS/OUT`;
+    let topic = `${labApi}/CONFIG`;
     let message = "STATUS"
     sendMQTTMessage(topic, message);
     response = {
