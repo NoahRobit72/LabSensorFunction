@@ -602,7 +602,9 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
 
     // Check if all updates are acknowledged
     if (dataResult.matchedCount > 0) {
-      sendMQTTConfigMessage(labApi, deviceConfig.DeviceID, deviceConfig.Frequency, deviceConfig.Units);
+      let topic = `${labApi}/CONFIG`;
+      let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units;
+      sendMQTTMessage(topic, message);
       response = {
         success: true,
         message: "Successfully updated device config",
@@ -624,6 +626,17 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
   }
   return response;
 };
+
+function sendMQTTMessage(topic, message) {
+  client.publish(topic, message, (err) => {
+      if (!err) {
+        console.log(`Published message to ${topic}: ${message}`);
+    } else {
+        console.error(`Error publishing message: ${err}`);
+    }
+    console.log();
+  })
+}
 
 // Function to update device config via the broker
 function sendMQTTConfigMessage(lab, deviceID, Frequency, Units){
@@ -810,7 +823,9 @@ const removeAlarm = async (db, labApi, alarmID) => {
 const sendDeviceRefresh = async(labApi) => {
   let response;
   try {    
-    sendMQTTStatusMessage(labApi);
+    let topic = `${labApi}/STATUS/OUT`;
+    let message = "STATUS"
+    sendMQTTMessage(topic, message);
     response = {
       success: true,
       message: "Successfully sent message to MQTT broker to check device status",
@@ -873,9 +888,8 @@ function sendMQTTStatusMessage(lab){
       console.log(`Published message to ${topic}: ${statusOutMessage}`);
   } else {
       console.error(`Error publishing message: ${err}`);
+      throw err;
   }
-
-  console.log();
   });
 }
 
