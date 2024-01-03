@@ -27,7 +27,7 @@ const client = mqtt.connect(connectUrl, {
   password: 'password3',
   reconnectPeriod: 1000,
   // If the server is using a self-signed certificate, you need to pass the CA.
-  ca: fs.readFileSync(caFilePath),
+  // ca: fs.readFileSync(caFilePath),
 })
 
 const headers = {
