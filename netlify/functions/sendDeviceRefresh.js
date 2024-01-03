@@ -1,4 +1,4 @@
-const { headers, sendDeviceRefresh } = require('../../public/helpers/db');
+const { headers, sendMQTTMessage } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({
@@ -14,7 +14,8 @@ exports.handler = async function (event) {
 
   try {
     const labApi = event.queryStringParameters.labApi;
-    const response = await sendDeviceRefresh(labApi);
+    const response = await sendMQTTMessage(`${labApi}/STATUS/OUT`, "STATUS");
+    console.log("RESPONSE: ", response);
 
     if (response.success) {
       return handleCors(200, response);
@@ -28,4 +29,4 @@ exports.handler = async function (event) {
       error: 'Internal server error',
     });
   }
-}
+};
