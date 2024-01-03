@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, removeDevice } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, removeDevice } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const labApi = event.queryStringParameters.labApi;

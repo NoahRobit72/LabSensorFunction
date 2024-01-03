@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, updateManyDeviceStatus } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, updateManyDeviceStatus } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({

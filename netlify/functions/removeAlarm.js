@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, removeAlarm } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, removeAlarm } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({

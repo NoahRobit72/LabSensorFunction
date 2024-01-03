@@ -1,4 +1,4 @@
-const { fetchDataFromMongoDB} = require('../../databaseFunctions/db');
+const { fetchDataFromMongoDB} = require('../../public/helpers/db');
 
 // SLACK Function
 

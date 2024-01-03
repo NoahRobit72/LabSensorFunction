@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, editDeviceConfig } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, editDeviceConfig } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({

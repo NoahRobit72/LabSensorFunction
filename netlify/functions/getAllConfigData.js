@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, getAllConfigData } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, getAllConfigData } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({

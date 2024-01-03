@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, getAllHistoricalDataForDevice } = require('../../databaseFunctions/db');
+const { headers, connectToDatabase, getAllHistoricalDataForDevice } = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({
