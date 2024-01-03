@@ -646,16 +646,32 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
   return response;
 };
 
-function sendMQTTMessage(topic, message) {
-  client.publish(topic, message, (err) => {
+const sendMQTTMessage = async (topic, message) => {
+  return new Promise((resolve, reject) => {
+    client.publish(topic, message, (err) => {
       if (!err) {
         console.log(`Published message to ${topic}: ${message}`);
-    } else {
+        const response = {
+          success: true,
+          message: "Successfully sent MQTT message",
+          data: null
+        };
+        console.log("RESPONSE IN: ", response);
+        resolve(response);
+      } else {
         console.error(`Error publishing message: ${err}`);
-    }
-    console.log();
-  })
-}
+        const response = {
+          success: false,
+          message: `Failed to send MQTT message with error: ${err}`,
+          data: null
+        };
+        reject(response);
+      }
+    });
+  });
+};
+
+
 
 // Function to update device config via the broker
 function sendMQTTConfigMessage(lab, deviceID, Frequency, Units){
@@ -933,5 +949,6 @@ module.exports = {
   getAllHistoricalDataForDevice,
   createLab,
   sendDeviceRefresh,
-  updateManyDeviceStatus
+  updateManyDeviceStatus,
+  sendMQTTMessage
 };
