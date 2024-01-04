@@ -585,7 +585,17 @@ const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
     const historicalData = await historicalCollection
       .find({ DeviceID: parseInt(parsedDeviceID) })
       .sort({ Time: 1 }) // Sort by Time in ascending order
-      .project({ Temperature: 1, Humidity: 1, Time: 1, _id: 0 })
+      .project({ 
+        Temperature: 1, 
+        Humidity: 1,
+        CO: 1,
+        Alcohol: 1,
+        CO2: 1,
+        Toluene: 1,
+        NH4: 1,
+        Acetone: 1, 
+        Time: 1,
+        _id: 0 })
       .toArray();
 
     return {
