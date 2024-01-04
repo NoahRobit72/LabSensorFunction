@@ -228,6 +228,12 @@ const addDevice = async (db, labApi, inputObject) => {
       DeviceName: `Device ${index}`,
       Temperature: 0,
       Humidity: 0,
+      CO: 0,
+      Alcohol: 0,
+      CO2: 0,
+      Toluene: 0,
+      NH4: 0,
+      Acetone: 0,
       Time: currentTime,
       Status: "Online",
       Frequency: 10,
@@ -275,7 +281,16 @@ const updateRecentDeviceData = async (db, labApi, dataObject) => {
   try {
     const dataResult = await dataCollection.updateOne(
       { DeviceID: dataObject.DeviceID },
-      { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: dataObject.Time } },
+      { $set: { 
+        Temperature: dataObject.Temperature, 
+        Humidity: dataObject.Humidity,
+        CO: dataObject.CO,
+        Alcohol: dataObject.Alcohol,
+        CO2: dataObject.CO2,
+        Toluene: dataObject.Toluene,
+        NH4: dataObject.NH4,
+        Acetone: dataObject.Acetone,
+        Time: dataObject.Time } },
       { upsert: true }
     );
 
@@ -342,6 +357,7 @@ const updateHistoricalDeviceData = async (db, labApi, dataObject) => {
 
 }
 
+// Update to handle alarms for air quality values
 const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
   let response;
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
@@ -363,12 +379,12 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
             const compare = alarm.Compare == '>' ? 'above' : 'below';
             const returnString = `ALERT ${lab.labName}! Device ${alarm.DeviceName}'s ${alarm.SensorType} has gone ${compare} the threshold of ${alarm.Threshold}`
 
-            await twilio.messages
-            .create({
-                body: returnString,
-                from: '+18557298429',
-                to: `${lab.phoneNumber}`
-            })
+            // await twilio.messages
+            // .create({
+            //     body: returnString,
+            //     from: '+18557298429',
+            //     to: `${lab.phoneNumber}`
+            // })
           }
           
         } else {
@@ -398,32 +414,33 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
 const isAlarmTriggered = (dataObject, alarm) => {
   switch (alarm.SensorType) {
     case "Temperature":
-      return checkTemperatureAlarm(dataObject.Temperature, alarm.Threshold, alarm.Compare);
+      return checkAlarm(dataObject.Temperature, alarm.Threshold, alarm.Compare);
     case "Humidity":
-      return checkHumidityAlarm(dataObject.Humidity, alarm.Threshold, alarm.Compare)
+      return checkAlarm(dataObject.Humidity, alarm.Threshold, alarm.Compare);
+    case "CO":
+      return checkAlarm(dataObject.CO, alarm.Threshold, alarm.Compare);
+    case "Alcohol":
+      return checkAlarm(dataObject.Alcohol, alarm.Threshold, alarm.Compare);
+    case "CO2":
+      return checkAlarm(dataObject.CO2, alarm.Threshold, alarm.Compare);
+    case "Toluene":
+      return checkAlarm(dataObject.Toluene, alarm.Threshold, alarm.Compare);
+    case "NH4":
+      return checkAlarm(dataObject.NH4, alarm.Threshold, alarm.Compare);
+    case "Acetone":
+      return checkAlarm(dataObject.Acetone, alarm.Threshold, alarm.Compare);
     default:
       return false;
   }
 };
 
 // Function to check temperature alarm
-const checkTemperatureAlarm = (currentTemperature, threshold, compare) => {
+const checkAlarm = (currentValue, threshold, compare) => {
   switch (compare) {
     case ">":
-      return currentTemperature > threshold;
+      return currentValue > threshold;
     case "<":
-      return currentTemperature < threshold;
-    default:
-      return false;
-  }
-};
-
-const checkHumidityAlarm = (currentHumidity, threshold, compare) => {
-  switch (compare) {
-    case ">":
-      return currentHumidity > threshold;
-    case "<":
-      return currentHumidity < threshold;
+      return currentValue < threshold;
     default:
       return false;
   }
