@@ -6,13 +6,10 @@ require('dotenv').config();
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
 const twilio = require('twilio')(accountSid, authToken);
-// const openAI = require('openai');
-
 //MQTT DEFS
 const mqtt = require('mqtt');
 const readline = require('readline');
 
-const fs = require('fs').promises;
 const protocol = 'mqtts'
 // Set the host and port based on the connection information.
 const host = 'u88196e4.ala.us-east-1.emqxsl.com'
@@ -31,48 +28,6 @@ const client = mqtt.connect(connectUrl, {
   // If the server is using a self-signed certificate, you need to pass the CA.
   // ca: fs.readFileSync(caFilePath),
 })
-
-// const AIClient = new openAI.OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// });
-
-// const assistantFilePath = path.join(__dirname, 'assistant.json');
-
-// const createAssistant = async () => {
-//   try {
-//     let assistantId;
-//     try {
-//       // Try to read the assistant file
-//       const assistantData = JSON.parse(await fs.readFile(assistantFilePath, 'utf8'));
-//       assistantId = assistantData.assistant_id;
-//       console.log("Loaded existing assistant ID.");
-//     } catch (readError) {
-//       // If the file doesn't exist or any other error occurs, create a new assistant
-//       const assistant = await AIClient.beta.assistants.create({
-//         name: "Lab Expert",
-//         instructions: `As 'Lab Expert', you are a scientifically-oriented AI with a deep understanding of laboratory experiments and data analysis. Your role is to assist in interpreting experiment objectives, analyzing data, and providing detailed assessments of laboratory conditions. When presented with experiment goals and data such as temperature, humidity, and gas concentrations, you offer a formal summary of the impact of these conditions on the experiment, determining their optimality. In addition to analyzing data, you now also provide recommendations for setting alarms. These alarms are intended to notify users when specific data points exceed or fall below predetermined thresholds. You suggest appropriate thresholds based on the experiment's requirements to ensure data stays within optimal ranges. Your advice supplements professional judgment, balancing detailed scientific analysis with practical guidance. If more information is needed to make an informed analysis or alarm recommendation, you ask clarifying questions. This ensures your assessments and advice are as accurate and helpful as possible.
-
-//         Example Input:
-//         - Experiment Goal: Clinical study of vital signs in a medical environment.
-//         - Data: Temperature, humidity, various gas concentrations.
-        
-//         You'll analyze this data, evaluate the experiment's conditions, and recommend alarms to set, asking questions if needed.`,
-//         tools: [], // Ensure this is an array
-//         model: "gpt-4-1106-preview"
-//       });
-
-//       // Write the new assistant ID to a file
-//       await fs.writeFile(assistantFilePath, JSON.stringify({ assistant_id: assistant.id }), 'utf8');
-//       console.log("Created a new assistant and saved the ID.");
-
-//       assistantId = assistant.id;
-//     }
-//     return assistantId;
-//   } catch (error) {
-//     console.error("Error in creating or loading the assistant:", error);
-//     throw error;
-//   }
-// };
 
 
 const headers = {
@@ -719,80 +674,6 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
   return response;
 };
 
-// const analyzeWithAI = async (db, labApi, deviceID) => {
-  
-//   let response;
-//   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
-//   const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
-
-
-//   try {
-//     const assistantId = await createAssistant();
-
-//     const dataResponse = await dataCollection.findOne({ DeviceID: parseInt(deviceID) });
-//     const historicalData = await historicalCollection.find({ DeviceID: parseInt(deviceID) }).toArray();
-
-//     if (!dataResponse || historicalData.length === 0) {
-//       return { success: false, message: `No sufficient data found for device ${deviceID}`, data: null };
-//     }
-
-//     const historicalDataAsString = historicalData.map(dataPoint => JSON.stringify(dataPoint)).join(', ');
-//     const input = `Experiment Summary: ${dataResponse.Experiment}. Data over time: ${historicalDataAsString}`.toString();
-
-//     const thread = await AIClient.beta.threads.create();
-//     console.log("THREAD 1: ", thread.id);
-
-//     const message = await AIClient.beta.threads.messages.create(
-//       thread.id,
-//       {
-//         role: "user",
-//         content: input
-//       }
-//     );
-
-
-//     const runData = await AIClient.beta.threads.runs.create(
-//       thread.id,
-//       { 
-//         assistant_id: assistantId,
-//         instructions: `As 'Lab Expert', you are a scientifically-oriented AI with a deep understanding of laboratory experiments and data analysis. Your role is to assist in interpreting experiment objectives, analyzing data, and providing detailed assessments of laboratory conditions. When presented with experiment goals and data such as temperature, humidity, and gas concentrations, you offer a formal summary of the impact of these conditions on the experiment, determining their optimality. In addition to analyzing data, you now also provide recommendations for setting alarms. These alarms are intended to notify users when specific data points exceed or fall below predetermined thresholds. You suggest appropriate thresholds based on the experiment's requirements to ensure data stays within optimal ranges. Your advice supplements professional judgment, balancing detailed scientific analysis with practical guidance. If more information is needed to make an informed analysis or alarm recommendation, you ask clarifying questions. This ensures your assessments and advice are as accurate and helpful as possible.
-
-//         Example Input:
-//         - Experiment Goal: Clinical study of vital signs in a medical environment.
-//         - Data: Temperature, humidity, various gas concentrations.
-        
-//         You'll analyze this data, evaluate the experiment's conditions, and recommend alarms to set, asking questions if needed.`
-//       }
-//     );
-
-//     let runStatus;
-//     do {
-//       runStatus = await AIClient.beta.threads.runs.retrieve(
-//         thread.id,
-//         runData.id
-//       );
-//       await new Promise(resolve => setTimeout(resolve, 1000)); // Sleep for 1 second
-//     } while (runStatus.status !== 'completed');
-    
-//     const messages = await AIClient.beta.threads.messages.list(
-//       thread.id
-//     );
-
-//     const assistantResponse = messages.data[0].content[0].text.value
-
-//     console.log("Assistant response:", assistantResponse); // Log the assistant's response
-
-//     response = { success: true, message: "AI analysis complete", data: assistantResponse };
-//   } catch (err) {
-//     console.error(`Error during AI analysis: ${err}`);
-//     response = { success: false, message: `Error during AI analysis: ${err}`, data: null };
-//   }
-
-//   return response;
-// };
-
-
-
 const sendMQTTMessage = async (topic, message) => {
   return new Promise((resolve, reject) => {
     client.publish(topic, message, (err) => {
@@ -1022,6 +903,7 @@ const sendDeviceRefresh = async(labApi) => {
   return response;
 }
 
+// Implemented ✅
 const updateManyDeviceStatus = async(db, labApi, devices) => {
   let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
@@ -1054,6 +936,38 @@ const updateManyDeviceStatus = async(db, labApi, devices) => {
     response = {
       success: false,
       message: `Failed to updatedevice status for multiple devices with error: ${err}`,
+      data: null
+    }
+  }
+  return response;
+}
+
+const getAIInput = async(db, labApi, deviceID) => {
+  let response;
+  const dataCollection = getCollection(db, `${labApi}_dataCollection`);
+  const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
+
+  try {
+    const dataResponse = await dataCollection.findOne({ DeviceID: parseInt(deviceID) });
+    const historicalData = await historicalCollection.find({ DeviceID: parseInt(deviceID) }).toArray();
+
+    if (!dataResponse || historicalData.length === 0) {
+      response = { success: false, message: `No sufficient data found for device ${deviceID}`, data: null };
+      return response;
+    }
+
+    const historicalDataAsString = historicalData.map(dataPoint => JSON.stringify(dataPoint)).join(', ');
+    const input = `Experiment Summary: ${dataResponse.Experiment}. Data over time: ${historicalDataAsString}`.toString();
+
+    response = {
+      success: true,
+      message: "Successfully received input for AI Analysis",
+      data: input
+    }
+  } catch (err) {
+    response = {
+      success: false,
+      message: `Failed to receive input for AI Analysis with error ${err}`,
       data: null
     }
   }
@@ -1097,5 +1011,5 @@ module.exports = {
   sendDeviceRefresh,
   updateManyDeviceStatus,
   sendMQTTMessage,
-  // analyzeWithAI
+  getAIInput
 };
