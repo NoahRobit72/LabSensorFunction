@@ -1097,5 +1097,5 @@ module.exports = {
   sendDeviceRefresh,
   updateManyDeviceStatus,
   sendMQTTMessage,
-  analyzeWithAI
+  // analyzeWithAI
 };
