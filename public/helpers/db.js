@@ -435,7 +435,6 @@ const isAlarmTriggered = (dataObject, alarm) => {
   }
 };
 
-// Function to check temperature alarm
 const checkAlarm = (currentValue, threshold, compare) => {
   switch (compare) {
     case ">":
@@ -447,88 +446,25 @@ const checkAlarm = (currentValue, threshold, compare) => {
   }
 };
 
-// Implemented ✅
-// OUTDATED
-const updateDeviceData = async (db, labApi, dataObject) => {
-  try {
-    console.log("Start updateDeviceData");
-
-    const dataCollection = getCollection(db, `${labApi}_dataCollection`);
-    const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
-    const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
-
-    // const currentTime = Math.floor(new Date().getTime() / 1000);
-
-    console.log("Checking historical data");
-    const historicalDataExists = await historicalCollection.countDocuments({ DeviceID: dataObject.DeviceID }) > 0;
-
-    if (!historicalDataExists) {
-      console.log("Inserting into historical collection");
-      await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
-    } else {
-      console.log("Retrieving most recent data");
-      const mostRecentData = await historicalCollection
-        .find({ DeviceID: dataObject.DeviceID })
-        .sort({ Time: -1 })
-        .limit(1)
-        .toArray();
-
-      const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
-
-      if ((currentTime - lastDataTime) >= 120) {
-        console.log("Inserting into historical collection");
-        await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
-      } else {
-        console.log("Not Inserting");
-        console.log(currentTime - lastDataTime);
-      }
-    }
-
-    console.log("Updating or inserting data into data collection");
-    const dataResult = await dataCollection.updateOne(
-      { DeviceID: dataObject.DeviceID },
-      { $set: { Temperature: dataObject.Temperature, Humidity: dataObject.Humidity, Time: currentTime } },
-      { upsert: true }
-    );
-
-    if (dataResult.matchedCount > 0 || dataResult.upsertedCount > 0) {
-      console.log("Checking alarm status");
-
-      const alarms = await alarmCollection.find({ DeviceID: dataObject.DeviceID }).toArray();
-      for (const alarm of alarms) {
-        if (isAlarmTriggered(dataObject, alarm)) {
-          await alarmCollection.updateOne(
-            { AlarmID: alarm.AlarmID },
-            { $set: { Status: "Triggered" } }
-          );
-        } else {
-          await alarmCollection.updateOne(
-            { AlarmID: alarm.AlarmID },
-            { $set: { Status: "Not Triggered" } }
-          );
-        }
-      }
-
-      console.log("Device data and alarms updated successfully");
-      return { success: true, message: "Device data and alarms updated successfully", data: null };
-    } else {
-      console.log("Update not acknowledged");
-      return { success: false, message: "Update not acknowledged", data: null };
-    }
-  } catch (err) {
-    console.error(`Failed to update device data with error: ${err}`);
-    return { success: false, message: `Failed to update device data with error: ${err}`, data: null };
-  }
-};
 
 // Implemented ✅
-// No need once tables are combined, use getAllHomePageData instead
 const getAllConfigData = async (db, labApi) => {
   let response;
-  const configCollection = getCollection(db, `${labApi}_configCollection`);
+  const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
   try {
-    const config = await configCollection.find({}).toArray();
+    const config = await dataCollection.find({})
+    .project({ 
+      DeviceID: 1,
+      DeviceName: 1,
+      Status: 1,
+      Frequency: 1,
+      Units: 1,
+      MAC: 1,
+      IP: 1,
+      Experiment: 1,
+      _id: 0 })
+      .toArray();
     response = {
       success: true,
       message: "Fetched all config data",
@@ -550,7 +486,22 @@ const getAllHomePageData = async (db, labApi) => {
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
   try {
-    const data = await dataCollection.find({}).toArray();
+    const data = await dataCollection.find({})
+      .project({ 
+        DeviceID: 1,
+        DeviceName: 1,
+        Temperature: 1, 
+        Humidity: 1,
+        CO: 1,
+        Alcohol: 1,
+        CO2: 1,
+        Toluene: 1,
+        NH4: 1,
+        Acetone: 1, 
+        Time: 1,
+        Status: 1,
+        _id: 0 }) 
+      .toArray();
 
     // Sort the data by status: "Online" first, "Offline" after
     const sortedData = data.sort((a, b) => {
@@ -1001,7 +952,6 @@ module.exports = {
   editAlarm,
   removeAlarm,
   addDevice,
-  updateDeviceData,
   updateRecentDeviceData,
   updateHistoricalDeviceData,
   checkDeviceAlarmStatus,
