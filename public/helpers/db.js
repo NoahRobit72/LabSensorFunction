@@ -2,6 +2,7 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
 const path = require ('path')
 require('dotenv').config();
+const fs = require('fs').promises;
 
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
@@ -29,6 +30,47 @@ const client = mqtt.connect(connectUrl, {
   // ca: fs.readFileSync(caFilePath),
 })
 
+const openAI = require('openai')
+const AIClient = new openAI.OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+const assistantFilePath = path.join(__dirname, 'assistant.json');
+
+const createAssistant = async () => {
+  try {
+      let assistantId;
+      try {
+      // Try to read the assistant file
+      const assistantData = JSON.parse(await fs.readFile(assistantFilePath, 'utf8'));
+      assistantId = assistantData.assistant_id;
+      console.log("Loaded existing assistant ID.");
+      } catch (readError) {
+      // If the file doesn't exist or any other error occurs, create a new assistant
+      const assistant = await AIClient.beta.assistants.create({
+          name: "Lab Expert",
+          instructions: `As 'Lab Expert', you are a scientifically-oriented AI with a deep understanding of laboratory experiments and data analysis. Your role is to assist in interpreting experiment objectives, analyzing data, and providing detailed assessments of laboratory conditions. When presented with experiment goals and data such as temperature, humidity, and gas concentrations, you offer a formal summary of the impact of these conditions on the experiment, determining their optimality. In addition to analyzing data, you now also provide recommendations for setting alarms. These alarms are intended to notify users when specific data points exceed or fall below predetermined thresholds. You suggest appropriate thresholds based on the experiment's requirements to ensure data stays within optimal ranges. Your advice supplements professional judgment, balancing detailed scientific analysis with practical guidance. If more information is needed to make an informed analysis or alarm recommendation, you ask clarifying questions. This ensures your assessments and advice are as accurate and helpful as possible.
+
+          Example Input:
+          - Experiment Goal: Clinical study of vital signs in a medical environment.
+          - Data: Temperature, humidity, various gas concentrations.
+          
+          You'll analyze this data, evaluate the experiment's conditions, and recommend alarms to set, asking questions if needed.`,
+          tools: [], // Ensure this is an array
+          model: "gpt-4-1106-preview"
+      });
+
+      // Write the new assistant ID to a file
+      await fs.writeFile(assistantFilePath, JSON.stringify({ assistant_id: assistant.id }), 'utf8');
+      console.log("Created a new assistant and saved the ID.");
+
+      assistantId = assistant.id;
+      }
+      return assistantId;
+  } catch (error) {
+      console.error("Error in creating or loading the assistant:", error);
+      throw error;
+  }
+};
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -948,6 +990,7 @@ const getAIInput = async(db, labApi, deviceID) => {
   const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
 
   try {
+    const assistantId = await createAssistant();
     const dataResponse = await dataCollection.findOne({ DeviceID: parseInt(deviceID) });
     const historicalData = await historicalCollection.find({ DeviceID: parseInt(deviceID) }).toArray();
 
@@ -959,10 +1002,39 @@ const getAIInput = async(db, labApi, deviceID) => {
     const historicalDataAsString = historicalData.map(dataPoint => JSON.stringify(dataPoint)).join(', ');
     const input = `Experiment Summary: ${dataResponse.Experiment}. Data over time: ${historicalDataAsString}`.toString();
 
+    const thread = await AIClient.beta.threads.create();
+
+    const message = await AIClient.beta.threads.messages.create(
+      thread.id,
+      {
+        role: "user",
+        content: input
+      }
+    );
+
+
+    const runData = await AIClient.beta.threads.runs.create(
+      thread.id,
+      { 
+        assistant_id: assistantId,
+        instructions: `As 'Lab Expert', you are a scientifically-oriented AI with a deep understanding of laboratory experiments and data analysis. Your role is to assist in interpreting experiment objectives, analyzing data, and providing detailed assessments of laboratory conditions. When presented with experiment goals and data such as temperature, humidity, and gas concentrations, you offer a formal summary of the impact of these conditions on the experiment, determining their optimality. In addition to analyzing data, you now also provide recommendations for setting alarms. These alarms are intended to notify users when specific data points exceed or fall below predetermined thresholds. You suggest appropriate thresholds based on the experiment's requirements to ensure data stays within optimal ranges. Your advice supplements professional judgment, balancing detailed scientific analysis with practical guidance. If more information is needed to make an informed analysis or alarm recommendation, you ask clarifying questions. This ensures your assessments and advice are as accurate and helpful as possible.
+
+        Example Input:
+        - Experiment Goal: Clinical study of vital signs in a medical environment.
+        - Data: Temperature, humidity, various gas concentrations.
+        
+        You'll analyze this data, evaluate the experiment's conditions, and recommend alarms to set, asking questions if needed.`
+      }
+    );
+
     response = {
       success: true,
       message: "Successfully received input for AI Analysis",
-      data: input
+      data: {
+        thread_id: thread.id,
+        run_id: runData.id,
+        api_key: process.env.OPENAI_API_KEY
+      }
     }
   } catch (err) {
     response = {
