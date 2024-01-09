@@ -499,6 +499,7 @@ const getAllHomePageData = async (db, labApi) => {
         Acetone: 1, 
         Time: 1,
         Status: 1,
+        SendData: 1,
         _id: 0 }) 
       .toArray();
 
