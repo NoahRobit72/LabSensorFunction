@@ -1,14 +1,11 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
-const path = require ('path')
-require('dotenv').config();
 
 const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
 const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
 const twilio = require('twilio')(accountSid, authToken);
 //MQTT DEFS
 const mqtt = require('mqtt');
-const readline = require('readline');
 
 const protocol = 'mqtts'
 // Set the host and port based on the connection information.
@@ -16,7 +13,7 @@ const host = 'u88196e4.ala.us-east-1.emqxsl.com'
 const port = '8883'
 const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const connectUrl = `${protocol}://${host}:${port}`
-const caFilePath = path.resolve(__dirname, '../certificates/broker.emqx.io-ca.crt');
+// const caFilePath = path.resolve(__dirname, '../certificates/broker.emqx.io-ca.crt');
 
 const client = mqtt.connect(connectUrl, {
   clientId,
@@ -241,6 +238,7 @@ const addDevice = async (db, labApi, inputObject) => {
       MAC: MAC,
       IP: IP,
       Experiment: "",
+      SendData: "11111111"
     };
 
     // Use insertOne to get detailed result information
@@ -463,6 +461,7 @@ const getAllConfigData = async (db, labApi) => {
       MAC: 1,
       IP: 1,
       Experiment: 1,
+      SendData: 1,
       _id: 0 })
       .toArray();
     response = {
@@ -593,7 +592,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
 
   try {
-    const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName, Frequency: deviceConfig.Frequency, Units: deviceConfig.Units, Experiment: deviceConfig.Experiment } });
+    const dataResult = await dataCollection.updateOne({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName, Frequency: deviceConfig.Frequency, Units: deviceConfig.Units, Experiment: deviceConfig.Experiment, SendData: deviceConfig.SendData } });
 
     // Update in alarmCollection
     await alarmCollection.updateMany({ DeviceID: deviceConfig.DeviceID }, { $set: { DeviceName: deviceConfig.DeviceName } });
@@ -601,7 +600,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
     // Check if all updates are acknowledged
     if (dataResult.matchedCount > 0) {
       let topic = `${labApi}/CONFIG`;
-      let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units;
+      let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units + " " + deviceConfig.SendData;
       sendMQTTMessage(topic, message);
       response = {
         success: true,
