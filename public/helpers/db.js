@@ -1,15 +1,16 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
+require('dotenv').config();
 
-const accountSid = 'ACab8799e29a7be958d0bbef422d874e6a';
-const authToken = '5dbd47e187da6d80a8802caa3a7b8f58';
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilio = require('twilio')(accountSid, authToken);
 //MQTT DEFS
 const mqtt = require('mqtt');
 
 const protocol = 'mqtts'
 // Set the host and port based on the connection information.
-const host = 'u88196e4.ala.us-east-1.emqxsl.com'
+const host = process.env.MQTTHOST
 const port = '8883'
 const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const connectUrl = `${protocol}://${host}:${port}`
@@ -45,7 +46,7 @@ const connectToDatabase = async () => {
       console.log("CACHE")
       return cachedDb;
     }
-    const uri = 'mongodb+srv://bgilb33:GbGb302302!@labsensordb.drzhafh.mongodb.net/labsensordb?retryWrites=true&w=majority';
+    const uri = process.env.DBURI;
     const client = new MongoClient(uri, { 
       useNewUrlParser: true, 
       useUnifiedTopology: true, 
@@ -378,12 +379,12 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
             const compare = alarm.Compare == '>' ? 'above' : 'below';
             const returnString = `ALERT ${lab.labName}! Device ${alarm.DeviceName}'s ${alarm.SensorType} has gone ${compare} the threshold of ${alarm.Threshold}`
 
-            // await twilio.messages
-            // .create({
-            //     body: returnString,
-            //     from: '+18557298429',
-            //     to: `${lab.phoneNumber}`
-            // })
+            await twilio.messages
+            .create({
+                body: returnString,
+                from: '+18557298429',
+                to: `${lab.phoneNumber}`
+            })
           }
           
         } else {
