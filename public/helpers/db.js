@@ -43,7 +43,6 @@ let cachedDb = null;
 const connectToDatabase = async () => {
   try {
     if (cachedDb && cachedClient) {
-      console.log("CACHE")
       return cachedDb;
     }
     const uri = process.env.DBURI;
@@ -209,7 +208,8 @@ const addDevice = async (db, labApi, inputObject) => {
           DeviceID: existingDevice.DeviceID,
           Frequency: existingDevice.Frequency,
           Units: existingDevice.Units,
-          Status: existingDevice.Status
+          Status: existingDevice.Status,
+          SendData: existingDevice.SendData
         }
       };
       return response;
@@ -253,7 +253,8 @@ const addDevice = async (db, labApi, inputObject) => {
         data: {
           DeviceID: index,
           Frequency: 10,
-          Units: "Minute"
+          Units: "Minute",
+          SendData: "11111111"
         }
       };
     } else {
