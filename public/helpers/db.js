@@ -341,7 +341,7 @@ const updateHistoricalDeviceData = async (db, labApi, dataObject) => {
 
     const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
 
-    if ((dataObject.Time - lastDataTime) >= 120) {
+    if ((dataObject.Time - lastDataTime) >= 180) {
       await historicalCollection.insertOne({ ...dataObject, Time: dataObject.Time });
       response = {success: true, message: "Historical data successfully updated", data: null}
     } else {
@@ -502,6 +502,7 @@ const getAllHomePageData = async (db, labApi) => {
         Time: 1,
         Status: 1,
         SendData: 1,
+        Experiment: 1,
         _id: 0 }) 
       .toArray();
 
