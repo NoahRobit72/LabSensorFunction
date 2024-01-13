@@ -1,10 +1,12 @@
 const axios = require('axios');
+require('dotenv').config();
+
 // SLACK Sub function
 // In the future this could just be a function that is called
 
 exports.handler = async function (event) {
     const alarm = event.queryStringParameters.alarmName
-    const slackWebhookURL = 'https://hooks.slack.com/services/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';
+    const slackWebhookURL = process.env.MSGWEBHOOK;
     const returnString = `ALERT: ${alarm} has been triggered!`
 
     try {
