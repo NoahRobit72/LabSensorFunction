@@ -1,4 +1,4 @@
-const { headers, connectToDatabase, getAllConfigData } = require('../../public/helpers/db');
+const { headers, getSlackConfigData} = require('../../public/helpers/db');
 
 exports.handler = async function (event) {
   const handleCors = (statusCode, body) => ({
@@ -12,25 +12,7 @@ exports.handler = async function (event) {
   }
 
   try {
-    const db = await connectToDatabase();
-    console.log("connected to database")
-    const returnContent = await getAllConfigData(db, "nialab"); // hard coded now but will be changed later
-    const multilineString = generateMultilineString(returnContent.data);
-  
-    console.log(multilineString);
-  
-    const response = {
-      "blocks": [
-        {
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": multilineString
-          }
-        }
-      ]
-    };
-  
+    const response = await getSlackConfigData()
     return {
       statusCode: 200,
       headers,
@@ -48,14 +30,3 @@ exports.handler = async function (event) {
   }
 }
 
-function generateMultilineString(data) {
-  let result = "";
-
-  data.forEach(device => {
-    result += `*Device Name:* ${device.DeviceName}\n`;
-    result += `*Device Status:* ${device.Status}\n`;
-    result += `*Frequency:* ${device.Frequency} samples per ${device.Units}\n\n`;
-  });
-
-  return result;
-}

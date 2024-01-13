@@ -896,6 +896,49 @@ const updateManyDeviceStatus = async(db, labApi, devices) => {
   return response;
 }
 
+
+const getSlackConfigData = async(db) => {
+  try {
+    const db = await connectToDatabase();
+    console.log("connected to database")
+    const returnContent = await getAllConfigData(db, "nialab"); // hard coded now but will be changed later
+    const multilineString = generateMultilineString(returnContent.data);
+  
+    console.log(multilineString);
+  
+    const response = {
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": multilineString
+          }
+        }
+      ]
+    };
+  
+    return {response};
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    return error;
+  }
+};
+
+function generateMultilineString(data) {
+  let result = "";
+
+  data.forEach(device => {
+    result += `*Device Name:* ${device.DeviceName}\n`;
+    result += `*Device Status:* ${device.Status}\n`;
+    result += `*Frequency:* ${device.Frequency} samples per ${device.Units}\n\n`;
+  });
+
+  return result;
+}
+
+
+
 const getAIInput = async(db, labApi, deviceID) => {
   let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
@@ -964,5 +1007,6 @@ module.exports = {
   sendDeviceRefresh,
   updateManyDeviceStatus,
   sendMQTTMessage,
-  getAIInput
+  getAIInput,
+  getSlackConfigData
 };
