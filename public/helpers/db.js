@@ -918,7 +918,7 @@ const getSlackConfigData = async(db) => {
       ]
     };
   
-    return {response};
+    return response;
   } catch (error) {
     console.error('Error fetching data:', error);
     return error;
