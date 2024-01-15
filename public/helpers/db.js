@@ -283,6 +283,7 @@ const updateRecentDeviceData = async (db, labApi, dataObject) => {
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
 
   try {
+    const currentTime = Math.floor(new Date().getTime() / 1000);
     const dataResult = await dataCollection.updateOne(
       { DeviceID: dataObject.DeviceID },
       { $set: { 
@@ -294,7 +295,7 @@ const updateRecentDeviceData = async (db, labApi, dataObject) => {
         Toluene: dataObject.Toluene,
         NH4: dataObject.NH4,
         Acetone: dataObject.Acetone,
-        Time: dataObject.Time } },
+        Time: currentTime } },
       { upsert: true }
     );
 
@@ -342,10 +343,11 @@ const updateHistoricalDeviceData = async (db, labApi, dataObject) => {
       .limit(1)
       .toArray();
 
+    const currentTime = Math.floor(new Date().getTime() / 1000);
     const lastDataTime = mostRecentData.length > 0 ? mostRecentData[0].Time : 0;
 
-    if ((dataObject.Time - lastDataTime) >= 180) {
-      await historicalCollection.insertOne({ ...dataObject, Time: dataObject.Time });
+    if ((currentTime - lastDataTime) >= 180) {
+      await historicalCollection.insertOne({ ...dataObject, Time: currentTime });
       response = {success: true, message: "Historical data successfully updated", data: null}
     } else {
       response = {success: true, message: "Historical data not updated due to insufficient time passing", data: null}
@@ -379,7 +381,6 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
           
           // SEND TEXT
           if (previousStatus == 'Not Triggered') {
-            console.log(`SLACK URL: ${slackWebhookURL}`)
             const lab = await labCollection.findOne({api: labApi});
             const compare = alarm.Compare == '>' ? 'above' : 'below';
             const returnString = `ALERT ${lab.labName}! Device ${alarm.DeviceName}'s ${alarm.SensorType} has gone ${compare} the threshold of ${alarm.Threshold}`
@@ -392,15 +393,13 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
                 to: `${lab.phoneNumber}`
             })
 
-            let slackResponse = await axios.post(slackWebhookURL, {
+            await axios.post(slackWebhookURL, {
               text: returnString,
             }, {
             headers: {
               'Content-type': 'application/json',
                 },
-            });
-            console.log(`Slack API Return: ${slackResponse}`)
-          
+            });          
           }
           
         } else {
@@ -546,7 +545,7 @@ const getAllHomePageData = async (db, labApi) => {
   return response;
 };
 
-
+// Implemented ✅
 const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
   const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
   const parsedDeviceID = parseInt(deviceID, 10);
@@ -667,25 +666,6 @@ const sendMQTTMessage = async (topic, message) => {
     });
   });
 };
-
-
-// Function to update device config via the broker
-function sendMQTTConfigMessage(lab, deviceID, Frequency, Units){
-  message = deviceID.toString() + " " + Frequency.toString() + " " + Units;
-
-
-  topic = lab + "/CONFIG"
-  // Publish the user's message to a topic
-  client.publish(topic, message, (err) => {
-  if (!err) {
-      console.log(`Published message to ${topic}: ${message}`);
-  } else {
-      console.error(`Error publishing message: ${err}`);
-  }
-
-  console.log();
-  });
-}
 
 // Implemented ✅
 const removeDevice = async (db, labApi, deviceID) => {
@@ -952,8 +932,7 @@ function generateMultilineString(data) {
   return result;
 }
 
-
-
+// Implemented ✅
 const getAIInput = async(db, labApi, deviceID) => {
   let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
@@ -984,20 +963,6 @@ const getAIInput = async(db, labApi, deviceID) => {
     }
   }
   return response;
-}
-
-function sendMQTTStatusMessage(lab){
-  topic = lab + "/STATUS/OUT";
-  const statusOutMessage = "STATUS";
-  // Publish the user's message to a topic
-  client.publish(topic, statusOutMessage, (err) => {
-  if (!err) {
-      console.log(`Published message to ${topic}: ${statusOutMessage}`);
-  } else {
-      console.error(`Error publishing message: ${err}`);
-      throw err;
-  }
-  });
 }
 
 module.exports = {
