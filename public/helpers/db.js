@@ -1,10 +1,13 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require ('bcryptjs');
 require('dotenv').config();
+const axios = require('axios');
 
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilio = require('twilio')(accountSid, authToken);
+
+const slackWebhookURL = process.env.MSGWEBHOOK;
 //MQTT DEFS
 const mqtt = require('mqtt');
 
@@ -376,16 +379,28 @@ const checkDeviceAlarmStatus = async(db, labApi, dataObject) => {
           
           // SEND TEXT
           if (previousStatus == 'Not Triggered') {
+            console.log(`SLACK URL: ${slackWebhookURL}`)
             const lab = await labCollection.findOne({api: labApi});
             const compare = alarm.Compare == '>' ? 'above' : 'below';
             const returnString = `ALERT ${lab.labName}! Device ${alarm.DeviceName}'s ${alarm.SensorType} has gone ${compare} the threshold of ${alarm.Threshold}`
 
+            // Sending Text
             await twilio.messages
             .create({
                 body: returnString,
                 from: '+18557298429',
                 to: `${lab.phoneNumber}`
             })
+
+            let slackResponse = await axios.post(slackWebhookURL, {
+              text: returnString,
+            }, {
+            headers: {
+              'Content-type': 'application/json',
+                },
+            });
+            console.log(`Slack API Return: ${slackResponse}`)
+          
           }
           
         } else {
