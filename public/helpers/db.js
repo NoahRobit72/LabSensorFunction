@@ -626,6 +626,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
           let addedConfig = "X" + i.toString() + " ";
           translatedSendData += addedConfig;
         }
+        translatedSendData.trim();
       }
       let topic = `${labApi}/CONFIG`;
       let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units + " " + translatedSendData;
