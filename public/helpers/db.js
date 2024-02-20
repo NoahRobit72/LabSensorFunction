@@ -242,7 +242,7 @@ const addDevice = async (db, labApi, inputObject) => {
       MAC: MAC,
       IP: IP,
       Experiment: "",
-      SendData: "11111111"
+      SendData: "111111111"
     };
 
     // Use insertOne to get detailed result information
@@ -605,6 +605,7 @@ const getAllAlarmData = async (db, labApi) => {
 
 // Implemented ✅
 const editDeviceConfig = async (db, labApi, deviceConfig) => {
+  // EDIT MQTT MESSAGE TO HANDLE NEW 'X' FORMAT
   let response;
   const dataCollection = getCollection(db, `${labApi}_dataCollection`);
   const alarmCollection = getCollection(db, `${labApi}_alarmCollection`);
@@ -617,8 +618,17 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
 
     // Check if all updates are acknowledged
     if (dataResult.matchedCount > 0) {
+      //TRANSLATE SENDDATA TO NEW FORMAT
+      let translatedSendData = "";
+      for (let i = 0; i < deviceConfig.SendData.length; i++) {
+        if (deviceConfig.SendData[i] == '1') {
+          // Add to translatedSendData
+          let addedConfig = " X" + i.toString();
+          translatedSendData += addedConfig;
+        }
+      }
       let topic = `${labApi}/CONFIG`;
-      let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units + " " + deviceConfig.SendData;
+      let message = deviceConfig.DeviceID.toString() + " " + deviceConfig.Frequency.toString() + " " + deviceConfig.Units + " " + translatedSendData;
       sendMQTTMessage(topic, message);
       response = {
         success: true,

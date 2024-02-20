@@ -10,6 +10,7 @@ exports.handler = async function (event) {
     const returnString = `ALERT: ${alarm} has been triggered!`
 
     try {
+        
         await axios.post(slackWebhookURL, {
             text: returnString,
         }, {
@@ -28,7 +29,7 @@ exports.handler = async function (event) {
         return {
             statusCode: 500,
             body: JSON.stringify({
-                message: 'error'
+                message: `Failed with error: ${error}`
             })
         }
     }
