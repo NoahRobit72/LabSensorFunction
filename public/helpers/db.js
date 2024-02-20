@@ -235,6 +235,7 @@ const addDevice = async (db, labApi, inputObject) => {
       Toluene: 0,
       NH4: 0,
       Acetone: 0,
+      Light: 0,
       Time: currentTime,
       Status: "Online",
       Frequency: 10,
@@ -295,6 +296,7 @@ const updateRecentDeviceData = async (db, labApi, dataObject) => {
         Toluene: dataObject.Toluene,
         NH4: dataObject.NH4,
         Acetone: dataObject.Acetone,
+        Light: dataObject.Light,
         Time: currentTime } },
       { upsert: true }
     );
@@ -517,6 +519,7 @@ const getAllHomePageData = async (db, labApi) => {
         Status: 1,
         SendData: 1,
         Experiment: 1,
+        Light: 1,
         _id: 0 }) 
       .toArray();
 
@@ -563,6 +566,7 @@ const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
         Toluene: 1,
         NH4: 1,
         Acetone: 1, 
+        Light: 1,
         Time: 1,
         _id: 0 })
       .toArray();
