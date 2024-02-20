@@ -623,7 +623,7 @@ const editDeviceConfig = async (db, labApi, deviceConfig) => {
       for (let i = 0; i < deviceConfig.SendData.length; i++) {
         if (deviceConfig.SendData[i] == '1') {
           // Add to translatedSendData
-          let addedConfig = " X" + i.toString();
+          let addedConfig = "X" + i.toString() + " ";
           translatedSendData += addedConfig;
         }
       }
