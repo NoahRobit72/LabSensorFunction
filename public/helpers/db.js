@@ -585,6 +585,89 @@ const getAllHistoricalDataForDevice = async (db, labApi, deviceID) => {
   }
 };
 
+const getGraphData = async (db, labApi, deviceID) => {
+  const threshold = 500;
+  const historicalCollection = getCollection(db, `${labApi}_historicalCollection`);
+  const parsedDeviceID = parseInt(deviceID, 10);
+
+  try {
+    const count = await historicalCollection.countDocuments({ DeviceID: parsedDeviceID });
+    console.log("COUNT: ", count);
+    let data;
+    if (count > threshold) {
+      console.log("DOWNSAMPLING");
+      // Using aan aggregaate pipeline to sort data into hour intervals and then take those averages
+      data = await historicalCollection.aggregate([
+        { $match: { DeviceID: parsedDeviceID } },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d %H:00:00",
+                date: { $toDate: { $multiply: ["$Time", 1000] } } 
+              }
+            },
+            AverageTemperature: { $avg: "$Temperature" },
+            AverageHumidity: { $avg: "$Humidity" },
+            AverageCO: { $avg: "$CO" },
+            AverageAlcohol: { $avg: "$Alcohol" },
+            AverageCO2: { $avg: "$CO2" },
+            AverageToluene: { $avg: "$Toluene" },
+            AverageNH4: { $avg: "$NH4" },
+            AverageAcetone: { $avg: "$Acetone" },
+            AverageLight: { $avg: "$Light" },
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            Time: "$_id",
+            Temperature: { $round: ["$AverageTemperature", 2] },
+            Humidity: { $round: ["$AverageHumidity", 2] },
+            CO: { $round: ["$AverageCO", 2] },
+            Alcohol: { $round: ["$AverageAlcohol", 2] },
+            CO2: { $round: ["$AverageCO2", 2] },
+            Toluene: { $round: ["$AverageToluene", 2] },
+            NH4: { $round: ["$AverageNH4", 2] },
+            Acetone: { $round: ["$AverageAcetone", 2] },
+            Light: { $round: ["$AverageLight", 2] },
+          }
+        },
+        { $sort: { Time: 1 } }
+      ]).toArray();
+    } else {
+      data = await historicalCollection.find({ DeviceID: parsedDeviceID })
+        .sort({ Time: 1 })
+        .project({
+          Temperature: 1,
+          Humidity: 1,
+          CO: 1,
+          Alcohol: 1,
+          CO2: 1,
+          Toluene: 1,
+          NH4: 1,
+          Acetone: 1,
+          Light: 1,
+          Time: 1,
+          _id: 0
+        }).toArray();
+    }
+
+    return {
+      success: true,
+      message: `Fetched historical data for DeviceID ${deviceID}`,
+      data,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `Failed to fetch historical data for DeviceID ${deviceID} with error: ${err}`,
+      data: null,
+    };
+  }
+};
+
+
 // Implemented ✅
 const getAllAlarmData = async (db, labApi) => {
   let response;
@@ -1003,5 +1086,6 @@ module.exports = {
   updateManyDeviceStatus,
   sendMQTTMessage,
   getAIInput,
-  getSlackConfigData
+  getSlackConfigData,
+  getGraphData
 };
